@@ -22,7 +22,7 @@ export class SupplierManagementApp {
     
     try {
       // Initialize the agent first
-      console.log('🤖 Initializing LangChain agent...');
+      console.log('🤖 Initializing OpenAI agent...');
       await this.agent.initialize();
       
       // Test database connection
@@ -36,7 +36,7 @@ export class SupplierManagementApp {
         throw new Error('Database connection failed');
       }
 
-      console.log('🤖 LangChain agent initialized with tools:');
+      console.log('🤖 OpenAI agent initialized with tools:');
       const tools = this.agent.getAvailableTools();
       tools.forEach(tool => {
         console.log(`  - ${tool.name}: ${tool.description}`);
@@ -104,7 +104,7 @@ if (require.main === module) {
     }
 
     console.log('\n' + '='.repeat(60));
-    console.log('🎯 DEMO: Supplier Management with LangChain');
+    console.log('🎯 DEMO: Supplier Management with OpenAI');
     console.log('='.repeat(60));
 
     try {

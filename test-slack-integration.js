@@ -93,11 +93,11 @@ async function testSlackChatEndpoint(testCase) {
   }
 }
 
-async function testLangChainEndpoint() {
-  console.log('\n🧠 Testing LangChain Processing Endpoint...');
+async function testOpenAIEndpoint() {
+  console.log('\n🧠 Testing OpenAI Processing Endpoint...');
   
   try {
-    const response = await axios.post(`${BASE_URL}/api/langchain/process`, {
+    const response = await axios.post(`${BASE_URL}/api/openai/process`, {
       message: 'Analyze the sentiment trends for all suppliers over the last 30 days',
       userId: mockSlackData.userId,
       context: {
@@ -112,7 +112,7 @@ async function testLangChainEndpoint() {
       max_tokens: 500
     });
     
-    console.log('✅ LangChain processing successful');
+    console.log('✅ OpenAI processing successful');
     console.log(`📋 Response: "${response.data.response}"`);
     console.log(`📊 Sources: ${response.data.sources.length} found`);
     console.log(`🔍 Embedding matches: ${response.data.embedding_matches.length}`);
@@ -120,7 +120,7 @@ async function testLangChainEndpoint() {
     
     return true;
   } catch (error) {
-    console.error('❌ LangChain processing failed:', error.response?.data || error.message);
+    console.error('❌ OpenAI processing failed:', error.response?.data || error.message);
     return false;
   }
 }
@@ -245,9 +245,9 @@ async function runSlackIntegrationTests() {
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
   
-  // Test LangChain endpoint
+  // Test OpenAI endpoint
   totalTests++;
-  if (await testLangChainEndpoint()) {
+  if (await testOpenAIEndpoint()) {
     passedTests++;
   }
   

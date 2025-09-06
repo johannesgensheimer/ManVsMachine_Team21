@@ -67,7 +67,7 @@ app.post('/api/chat', async (req, res) => {
       return res.status(503).json({
         error: {
           code: 'SERVICE_UNAVAILABLE',
-          message: 'LangChain agent is not initialized',
+          message: 'OpenAI agent is not initialized',
           details: 'The supplier management system is still starting up',
           timestamp: new Date().toISOString(),
           request_id: `req_${Date.now()}`
@@ -82,7 +82,7 @@ app.post('/api/chat', async (req, res) => {
     // Extract conversation history if provided in metadata
     const chatHistory = metadata?.conversation_history || [];
     
-    // Call the LangChain agent
+    // Call the OpenAI agent
     const result = await supplierApp.query(message, chatHistory);
     
     const processingTime = Date.now() - startTime;
@@ -118,8 +118,8 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// LangChain processing endpoint
-app.post('/api/langchain/process', async (req, res) => {
+// OpenAI processing endpoint
+app.post('/api/openai/process', async (req, res) => {
   try {
     const { message, userId, context, model, temperature, max_tokens } = req.body;
     
@@ -141,7 +141,7 @@ app.post('/api/langchain/process', async (req, res) => {
       return res.status(503).json({
         error: {
           code: 'SERVICE_UNAVAILABLE',
-          message: 'LangChain agent is not initialized',
+          message: 'OpenAI agent is not initialized',
           details: 'The supplier management system is still starting up',
           timestamp: new Date().toISOString(),
           request_id: `req_${Date.now()}`
@@ -149,20 +149,20 @@ app.post('/api/langchain/process', async (req, res) => {
       });
     }
 
-    console.log(`🤖 Processing LangChain request from user ${userId}: "${message}"`);
+    console.log(`🤖 Processing OpenAI request from user ${userId}: "${message}"`);
     
     const startTime = Date.now();
     
     // Extract conversation history from context
     const chatHistory = context?.conversation_history || [];
     
-    // Call the LangChain agent
+    // Call the OpenAI agent
     const result = await supplierApp.query(message, chatHistory);
     
     const processingTime = Date.now() - startTime;
     const tokensUsed = Math.ceil(message.length / 4); // Rough estimate
     
-    // Return detailed LangChain response
+    // Return detailed OpenAI response
     res.json({
       response: result.output,
       sources: [
@@ -190,12 +190,12 @@ app.post('/api/langchain/process', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ LangChain processing error:', error);
+    console.error('❌ OpenAI processing error:', error);
     
     res.status(500).json({
       error: {
-        code: 'LANGCHAIN_PROCESSING_ERROR',
-        message: 'Failed to process message with LangChain',
+        code: 'OPENAI_PROCESSING_ERROR',
+        message: 'Failed to process message with OpenAI',
         details: error instanceof Error ? error.message : 'Unknown error occurred',
         timestamp: new Date().toISOString(),
         request_id: `req_${Date.now()}`
@@ -227,7 +227,7 @@ app.post('/api/query', async (req, res) => {
       return res.status(503).json({
         error: {
           code: 'SERVICE_UNAVAILABLE',
-          message: 'LangChain agent is not initialized',
+          message: 'OpenAI agent is not initialized',
           details: 'The supplier management system is still starting up',
           timestamp: new Date().toISOString(),
           request_id: `req_${Date.now()}`
@@ -237,7 +237,7 @@ app.post('/api/query', async (req, res) => {
 
     console.log(`📝 Processing legacy query: "${text}"`);
     
-    // Call the LangChain agent
+    // Call the OpenAI agent
     const result = await supplierApp.query(text, chatHistory || []);
     
     // Return the response
@@ -519,7 +519,7 @@ app.get('/api/tools', (req, res) => {
       return res.status(503).json({
         error: {
           code: 'SERVICE_UNAVAILABLE',
-          message: 'LangChain agent is not initialized',
+          message: 'OpenAI agent is not initialized',
           details: 'The supplier management system is still starting up',
           timestamp: new Date().toISOString(),
           request_id: `req_${Date.now()}`
@@ -593,7 +593,7 @@ async function startServer() {
     console.log(`📋 Available endpoints:`);
     console.log(`\n🤖 Slack Bot Integration:`);
     console.log(`  - POST /api/chat - Main Slack bot endpoint`);
-    console.log(`  - POST /api/langchain/process - Advanced LangChain processing`);
+    console.log(`  - POST /api/openai/process - Advanced OpenAI processing`);
     console.log(`  - GET  /api/history/:userId - Chat history retrieval`);
     console.log(`  - POST /api/embeddings/search - Document search`);
     console.log(`\n🔧 Direct Access:`);

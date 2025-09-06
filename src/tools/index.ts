@@ -1,99 +1,113 @@
-// Export all tools for easy importing
+// Export all tool functions for easy importing
 export {
-  getSupplierOverviewTool,
-  searchSuppliersTool,
-  updateSupplierStatusTool,
-  createSupplierTool
+  getSupplierOverview,
+  searchSuppliers,
+  updateSupplierStatus,
+  createSupplier,
+  supplierFunctions
 } from './supplier-tools';
 
 export {
-  manageContactTool,
-  searchContactsTool
+  manageContact,
+  searchContacts,
+  contactFunctions
 } from './contact-tools';
 
 export {
-  logInteractionTool,
-  getInteractionHistoryTool,
-  analyzeSentimentTrendsTool
+  logInteraction,
+  getInteractionHistory,
+  analyzeSentimentTrends,
+  interactionFunctions
 } from './interaction-tools';
 
 export {
-  addNoteTool,
-  getNotesTool,
-  searchNotesTool,
-  manageNoteTool
+  addNote,
+  getNotes,
+  searchNotes,
+  manageNote,
+  noteFunctions
 } from './note-tools';
 
-// Collect all tools in an array for easy agent setup
-import {
-  getSupplierOverviewTool,
-  searchSuppliersTool,
-  updateSupplierStatusTool,
-  createSupplierTool
-} from './supplier-tools';
+// Collect all function definitions for OpenAI
+import { supplierFunctions } from './supplier-tools';
+import { contactFunctions } from './contact-tools';
+import { interactionFunctions } from './interaction-tools';
+import { noteFunctions } from './note-tools';
 
-import {
-  manageContactTool,
-  searchContactsTool
-} from './contact-tools';
+export const allFunctions = [
+  ...supplierFunctions,
+  ...contactFunctions,
+  ...interactionFunctions,
+  ...noteFunctions
+];
 
-import {
-  logInteractionTool,
-  getInteractionHistoryTool,
-  analyzeSentimentTrendsTool
-} from './interaction-tools';
-
-import {
-  addNoteTool,
-  getNotesTool,
-  searchNotesTool,
-  manageNoteTool
-} from './note-tools';
-
-export const allTools = [
+// Tool function mapping for execution
+export const toolFunctions = {
   // Supplier tools
-  getSupplierOverviewTool,
-  searchSuppliersTool,
-  updateSupplierStatusTool,
-  createSupplierTool,
+  get_supplier_overview: async (args: any) => {
+    const { getSupplierOverview } = await import('./supplier-tools');
+    return getSupplierOverview(args);
+  },
+  search_suppliers: async (args: any) => {
+    const { searchSuppliers } = await import('./supplier-tools');
+    return searchSuppliers(args);
+  },
+  update_supplier_status: async (args: any) => {
+    const { updateSupplierStatus } = await import('./supplier-tools');
+    return updateSupplierStatus(args);
+  },
+  create_supplier: async (args: any) => {
+    const { createSupplier } = await import('./supplier-tools');
+    return createSupplier(args);
+  },
   
   // Contact tools
-  manageContactTool,
-  searchContactsTool,
+  manage_contact: async (args: any) => {
+    const { manageContact } = await import('./contact-tools');
+    return manageContact(args);
+  },
+  search_contacts: async (args: any) => {
+    const { searchContacts } = await import('./contact-tools');
+    return searchContacts(args);
+  },
   
   // Interaction tools
-  logInteractionTool,
-  getInteractionHistoryTool,
-  analyzeSentimentTrendsTool,
+  log_interaction: async (args: any) => {
+    const { logInteraction } = await import('./interaction-tools');
+    return logInteraction(args);
+  },
+  get_interaction_history: async (args: any) => {
+    const { getInteractionHistory } = await import('./interaction-tools');
+    return getInteractionHistory(args);
+  },
+  analyze_sentiment_trends: async (args: any) => {
+    const { analyzeSentimentTrends } = await import('./interaction-tools');
+    return analyzeSentimentTrends(args);
+  },
   
   // Note tools
-  addNoteTool,
-  getNotesTool,
-  searchNotesTool,
-  manageNoteTool
-];
+  add_note: async (args: any) => {
+    const { addNote } = await import('./note-tools');
+    return addNote(args);
+  },
+  get_notes: async (args: any) => {
+    const { getNotes } = await import('./note-tools');
+    return getNotes(args);
+  },
+  search_notes: async (args: any) => {
+    const { searchNotes } = await import('./note-tools');
+    return searchNotes(args);
+  },
+  manage_note: async (args: any) => {
+    const { manageNote } = await import('./note-tools');
+    return manageNote(args);
+  }
+};
 
 // Tool categories for organized access
 export const toolCategories = {
-  supplier: [
-    getSupplierOverviewTool,
-    searchSuppliersTool,
-    updateSupplierStatusTool,
-    createSupplierTool
-  ],
-  contact: [
-    manageContactTool,
-    searchContactsTool
-  ],
-  interaction: [
-    logInteractionTool,
-    getInteractionHistoryTool,
-    analyzeSentimentTrendsTool
-  ],
-  note: [
-    addNoteTool,
-    getNotesTool,
-    searchNotesTool,
-    manageNoteTool
-  ]
+  supplier: supplierFunctions,
+  contact: contactFunctions,
+  interaction: interactionFunctions,
+  note: noteFunctions
 };

@@ -1,10 +1,9 @@
-import { ChatOpenAI } from '@langchain/openai';
-import { AgentExecutor, createReactAgent } from 'langchain/agents';
-import { ChatPromptTemplate, PromptTemplate } from '@langchain/core/prompts';
-import { allTools } from '../tools';
+import OpenAI from 'openai';
+import { allFunctions, toolFunctions } from '../tools';
+import { z } from 'zod';
 
-// Create the ReAct prompt template
-const prompt = PromptTemplate.fromTemplate(`You are a helpful AI assistant specialized in managing supplier relationships and database operations.
+// Create the system prompt for the agent
+const SYSTEM_PROMPT = `You are a helpful AI assistant specialized in managing supplier relationships and database operations.
 
 You have access to a comprehensive set of tools for managing:
 - Suppliers (companies you work with)
@@ -28,71 +27,27 @@ Guidelines:
 
 Remember: You're helping manage business relationships, so focus on actionable insights and maintaining data quality.
 
-TOOLS:
-------
-You have access to the following tools:
+Available tools:
+- get_supplier_overview: Get complete supplier information including contacts, recent interactions, and notes
+- search_suppliers: Search for suppliers using various filters like name, domain, status, tier, or creation date
+- update_supplier_status: Update a supplier's status or tier for managing supplier relationships
+- create_supplier: Create a new supplier record with basic information
+- manage_contact: Create, update, or retrieve contact information for suppliers (all CRUD operations)
+- search_contacts: Search for contacts across all suppliers using name, email, title, or supplier information
+- log_interaction: Record a new interaction with a supplier or specific contact
+- get_interaction_history: Retrieve interaction history with advanced filtering options
+- analyze_sentiment_trends: Analyze sentiment trends over time for suppliers or specific contacts
+- add_note: Add a note to a supplier record for recording important information
+- get_notes: Retrieve notes for a supplier with optional search and filtering capabilities
+- search_notes: Search notes across all suppliers for information that spans multiple relationships
+- manage_note: Update or delete an existing note (use with caution for delete operations)
 
-{tools}
-
-To use a tool, please use the following format:
-
-\`\`\`
-Thought: Do I need to use a tool? Yes
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action as valid JSON with quoted keys and values
-Observation: the result of the action
-\`\`\`
-
-CRITICAL: Action Input MUST be valid JSON with properly quoted keys and ALL string values in quotes. 
-ALWAYS use double quotes for keys and string values. Numbers can be unquoted.
-
-Examples:
-- CORRECT: {{"status": "active", "limit": 10}}
-- CORRECT: {{"supplierId": 1, "firstName": "John", "lastName": "Smith"}}
-- WRONG: {{status: active, limit: 10}}
-- WRONG: {{'status': 'active'}}
-
-If you make a JSON syntax error, the tool will fail. Double-check your JSON format!
-
-For contact management (manage_contact):
-- Create: {{"action": "create", "supplierId": 1, "firstName": "John", "lastName": "Smith", "email": "john@example.com", "title": "CEO"}}
-- Update: {{"action": "update", "contactId": 1, "title": "New Title"}}
-- Get: {{"action": "get", "contactId": 1}}
-
-For interactions:
-- Log (log_interaction): {{"supplierId": 1, "channel": "meeting", "summary": "Discussed partnership", "sentiment": "positive"}}
-- Analyze trends (analyze_sentiment_trends): {{"supplierId": 1, "days": 30, "groupBy": "week"}}
-- Get history (get_interaction_history): {{"supplierId": 1, "days": 30}}
-
-For supplier operations:
-- Search (search_suppliers): {{"status": "active", "tier": "gold"}}
-- Create (create_supplier): {{"name": "Company Name", "domain": "company.com", "status": "active", "tier": "silver"}}
-- Get overview (get_supplier_overview): {{"supplierId": 1}}
-- Update status (update_supplier_status): {{"supplierId": 1, "status": "active", "tier": "gold"}}
-
-For notes:
-- Add (add_note): {{"supplierId": 1, "body": "Important note text", "authorId": "user123"}}
-- Search (search_notes): {{"query": "contract", "supplierId": 1}}
-
-When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
-
-\`\`\`
-Thought: Do I need to use a tool? No
-Final Answer: [your response here]
-\`\`\`
-
-Begin!
-
-Previous conversation history:
-{chat_history}
-
-Question: {input}
-Thought: {agent_scratchpad}`);
+When using tools, always provide complete and accurate parameters. If you need clarification on any parameters, ask the user for more information.`;
 
 // Create and configure the database agent
 export class DatabaseAgent {
-  private agent!: AgentExecutor;
-  private llm: ChatOpenAI;
+  private openai: OpenAI;
+  private maxIterations: number = 10;
 
   constructor(openaiApiKey?: string, private options: {
     temperature?: number;
@@ -100,39 +55,23 @@ export class DatabaseAgent {
     maxTokens?: number;
     verbose?: boolean;
   } = {}) {
-    // Initialize the LLM
-    this.llm = new ChatOpenAI({
-      openAIApiKey: openaiApiKey || process.env.OPENAI_API_KEY,
-      temperature: options.temperature || 0.0, // Lower temperature for more consistent JSON formatting
-      modelName: options.model || 'gpt-4-turbo-preview',
-      maxTokens: options.maxTokens || 2000,
-      stop: ['\nObservation:'], // Ensure proper stopping
+    // Initialize the OpenAI client
+    this.openai = new OpenAI({
+      apiKey: openaiApiKey || process.env.OPENAI_API_KEY,
     });
   }
 
   // Initialize the agent (must be called before using)
   async initialize() {
-    await this.initializeAgent(this.options.verbose || false);
-  }
-
-  private async initializeAgent(verbose: boolean = false) {
-    const reactAgent = await createReactAgent({
-      llm: this.llm,
-      tools: allTools,
-      prompt
-    });
-
-    this.agent = new AgentExecutor({
-      agent: reactAgent,
-      tools: allTools,
-      verbose,
-      maxIterations: 10,
-      returnIntermediateSteps: true,
-      handleParsingErrors: (error: Error) => {
-        console.warn('Parsing error occurred:', error.message);
-        return 'I encountered a formatting error. Let me try again with proper JSON formatting.';
+    // Test the connection
+    try {
+      await this.openai.models.list();
+      if (this.options.verbose) {
+        console.log('✅ OpenAI connection established');
       }
-    });
+    } catch (error) {
+      throw new Error(`Failed to initialize OpenAI client: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // Main method to interact with the agent
@@ -141,23 +80,144 @@ export class DatabaseAgent {
     intermediateSteps?: any[];
     error?: string;
   }> {
-    if (!this.agent) {
-      return {
-        output: 'Agent not initialized. Please call initialize() first.',
-        error: 'Agent not initialized'
-      };
-    }
-
     try {
-      const result = await this.agent.invoke({
-        input,
-        chat_history: chatHistory.join('\n')
-      });
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'system', content: SYSTEM_PROMPT }
+      ];
 
+      // Add chat history
+      if (chatHistory.length > 0) {
+        messages.push({
+          role: 'user',
+          content: `Previous conversation context:\n${chatHistory.join('\n')}\n\nCurrent question: ${input}`
+        });
+      } else {
+        messages.push({ role: 'user', content: input });
+      }
+
+      const intermediateSteps: any[] = [];
+      let iteration = 0;
+
+      while (iteration < this.maxIterations) {
+        iteration++;
+
+        if (this.options.verbose) {
+          console.log(`🔄 Iteration ${iteration}: Calling OpenAI...`);
+        }
+
+        const response = await this.openai.chat.completions.create({
+          model: this.options.model || 'gpt-4-turbo-preview',
+          messages,
+          functions: allFunctions,
+          function_call: 'auto',
+          temperature: this.options.temperature || 0.1,
+          max_tokens: this.options.maxTokens || 2000,
+        });
+
+        const choice = response.choices[0];
+        if (!choice.message) {
+          throw new Error('No message in OpenAI response');
+        }
+
+        // Check if the model wants to call a function
+        if (choice.message.function_call) {
+          const functionCall = choice.message.function_call;
+          const functionName = functionCall.name;
+          
+          if (this.options.verbose) {
+            console.log(`🔧 Calling function: ${functionName}`);
+            console.log(`📋 Arguments: ${functionCall.arguments}`);
+          }
+
+          // Add the assistant's function call to messages
+          messages.push({
+            role: 'assistant',
+            content: null,
+            function_call: functionCall
+          });
+
+          try {
+            // Parse function arguments
+            let functionArgs;
+            try {
+              functionArgs = JSON.parse(functionCall.arguments || '{}');
+            } catch (parseError) {
+              throw new Error(`Invalid JSON in function arguments: ${functionCall.arguments}`);
+            }
+
+            // Execute the function
+            const toolFunction = toolFunctions[functionName as keyof typeof toolFunctions];
+            if (!toolFunction) {
+              throw new Error(`Unknown function: ${functionName}`);
+            }
+
+            const functionResult = await toolFunction(functionArgs);
+            
+            if (this.options.verbose) {
+              console.log(`✅ Function result: ${functionResult.substring(0, 200)}...`);
+            }
+
+            // Add the function result to messages
+            messages.push({
+              role: 'function',
+              name: functionName,
+              content: functionResult
+            });
+
+            // Record the intermediate step
+            intermediateSteps.push({
+              action: {
+                tool: functionName,
+                toolInput: functionArgs
+              },
+              observation: functionResult
+            });
+
+          } catch (functionError) {
+            const errorMessage = `Error executing ${functionName}: ${functionError instanceof Error ? functionError.message : 'Unknown error'}`;
+            
+            if (this.options.verbose) {
+              console.error(`❌ Function error: ${errorMessage}`);
+            }
+
+            // Add error to messages so the model can handle it
+            messages.push({
+              role: 'function',
+              name: functionName,
+              content: JSON.stringify({ error: errorMessage })
+            });
+
+            intermediateSteps.push({
+              action: {
+                tool: functionName,
+                toolInput: functionCall.arguments
+              },
+              observation: errorMessage
+            });
+          }
+
+        } else {
+          // No function call, return the final response
+          const finalResponse = choice.message.content || 'I apologize, but I was unable to generate a response.';
+          
+          if (this.options.verbose) {
+            console.log(`✨ Final response: ${finalResponse.substring(0, 200)}...`);
+          }
+
+          return {
+            output: finalResponse,
+            intermediateSteps
+          };
+        }
+      }
+
+      // If we reach max iterations without a final response
       return {
-        output: result.output,
-        intermediateSteps: result.intermediateSteps
+        output: 'I apologize, but I reached the maximum number of processing steps without completing your request. Please try rephrasing your question or breaking it into smaller parts.',
+        intermediateSteps,
+        error: 'Max iterations reached'
       };
+
     } catch (error) {
       console.error('Agent query error:', error);
       return {
@@ -197,9 +257,9 @@ export class DatabaseAgent {
 
   // Method to get available tools information
   getAvailableTools() {
-    return allTools.map(tool => ({
-      name: tool.name,
-      description: tool.description
+    return allFunctions.map(func => ({
+      name: func.name,
+      description: func.description
     }));
   }
 
