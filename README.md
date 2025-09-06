@@ -276,6 +276,7 @@ PORT=3000
 - `chat:write` - Send messages to channels
 - `chat:write.public` - Send messages to public channels
 - `channels:read` - Read channel information
+- `commands` - Handle slash commands (/history, /clear-history)
 
 #### Required Event Subscriptions:
 Enable **Event Subscriptions** and subscribe to:
@@ -283,6 +284,12 @@ Enable **Event Subscriptions** and subscribe to:
 - `message.channels` - Messages in public channels
 - `message.groups` - Messages in private channels  
 - `message.im` - Direct messages to bot
+
+#### Slash Commands (Optional):
+Create these slash commands in your Slack app:
+- `/history` - View conversation history
+- `/clear-history` - Clear conversation history
+Both should use Request URL: `https://your-app-url.com/slack/events`
 
 #### Socket Mode:
 - Create **App-Level Token** with `connections:write` scope
@@ -301,11 +308,15 @@ npm start
 ## Features
 
 - ✅ Socket Mode connection (no webhooks needed)
-- ✅ Responds to @mentions
-- ✅ Startup notification to specified channel
-- ✅ Basic error handling and logging
-- 🔄 Ready for LLM integration (TODO)
-- 🔄 Ready for backend API integration (TODO)
+- ✅ Responds to @mentions with conversation context
+- ✅ **Conversation History**: Local in-memory storage with 24-hour auto-expiry
+- ✅ **Thread Support**: Thread-aware context tracking
+- ✅ **Local Memory**: Pure local storage without external API calls
+- ✅ **Slash Commands**: `/history` and `/clear-history` for user control
+- ✅ **Auto Cleanup**: Memory management and old message expiry
+- ✅ **LLM Integration**: Full backend API integration with OpenAI
+- ✅ **Error Handling**: Comprehensive error handling and logging
+- ✅ **Multiple Users**: Per-user, per-channel conversation isolation
 
 ## Backend Integration
 

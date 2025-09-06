@@ -23,30 +23,177 @@ const app = new App({
   port: process.env.SLACK_PORT || 3001 // Use different port for Slack bot
 });
 
-// Helper function to call backend API
-async function callBackendAPI(userId, message, channel, timestamp, logger) {
-  try {
-    logger.info(`🔄 Calling backend API for user ${userId}: "${message}"`);
+// In-memory conversation history storage
+// Format: { channelId: { userId: [{ role: 'user'|'assistant', content: string, timestamp: string }] } }
+const conversationHistory = new Map();
+
+// Configuration for history management
+const HISTORY_CONFIG = {
+  MAX_MESSAGES_PER_USER: 20,    // Maximum messages to keep per user
+  HISTORY_EXPIRY_HOURS: 24,    // Clear history older than 24 hours
+  CLEANUP_INTERVAL_MINUTES: 60 // Run cleanup every 60 minutes
+};
+
+// Helper function to get conversation key with thread support
+function getConversationKey(channelId, userId, threadTs = null) {
+  // If in a thread, create separate conversation context for thread
+  // If not in thread, use 'main' as default thread identifier
+  const threadId = threadTs || 'main';
+  return `${channelId}:${userId}:${threadId}`;
+}
+
+// Helper function to add message to history with thread support
+function addToHistory(channelId, userId, role, content, timestamp, threadTs = null) {
+  const key = getConversationKey(channelId, userId, threadTs);
+  console.log(`🔍 DEBUG: addToHistory called with key: ${key}`);
+  
+  if (!conversationHistory.has(key)) {
+    conversationHistory.set(key, []);
+    console.log(`🔍 DEBUG: Created new history for key: ${key}`);
+  }
+  
+  const history = conversationHistory.get(key);
+  
+  // Add new message
+  history.push({
+    role: role, // 'user' or 'assistant'
+    content: content,
+    timestamp: timestamp || new Date().toISOString(),
+    threadTs: threadTs || null // Store thread context
+  });
+  
+  // Keep only the last MAX_MESSAGES_PER_USER messages
+  if (history.length > HISTORY_CONFIG.MAX_MESSAGES_PER_USER) {
+    history.splice(0, history.length - HISTORY_CONFIG.MAX_MESSAGES_PER_USER);
+  }
+  
+  const threadInfo = threadTs ? ` (thread: ${threadTs})` : ' (main channel)';
+  console.log(`💬 Added to history [${key}]: ${role} - "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"${threadInfo}`);
+  console.log(`🔍 DEBUG: History now has ${history.length} messages for key: ${key}`);
+  console.log(`🔍 DEBUG: Full history for this key:`, history);
+}
+
+// Helper function to get conversation history for a user with thread support
+function getConversationHistory(channelId, userId, threadTs = null, limit = 10) {
+  const key = getConversationKey(channelId, userId, threadTs);
+  console.log(`🔍 DEBUG: getConversationHistory called with key: ${key}`);
+  const history = conversationHistory.get(key) || [];
+  console.log(`🔍 DEBUG: Retrieved history for key ${key}:`, history);
+  
+  // Return the last 'limit' messages, formatted for the backend
+  const recentHistory = history.slice(-limit);
+  
+  // Format for backend API (convert to simple string array or keep as objects)
+  const formattedHistory = recentHistory.map(msg => ({
+    role: msg.role,
+    content: msg.content,
+    timestamp: msg.timestamp,
+    threadTs: msg.threadTs
+  }));
+  
+  const threadInfo = threadTs ? ` (thread: ${threadTs})` : ' (main channel)';
+  console.log(`📚 Retrieved history [${key}]: ${formattedHistory.length} messages${threadInfo}`);
+  return formattedHistory;
+}
+
+
+// Helper function to clean up old conversation history
+function cleanupOldHistory() {
+  const cutoffTime = new Date();
+  cutoffTime.setHours(cutoffTime.getHours() - HISTORY_CONFIG.HISTORY_EXPIRY_HOURS);
+  
+  let cleanedCount = 0;
+  
+  for (const [key, history] of conversationHistory.entries()) {
+    // Filter out messages older than cutoff time
+    const filteredHistory = history.filter(msg => {
+      const messageTime = new Date(msg.timestamp);
+      return messageTime > cutoffTime;
+    });
     
+    if (filteredHistory.length !== history.length) {
+      const removed = history.length - filteredHistory.length;
+      cleanedCount += removed;
+      
+      if (filteredHistory.length === 0) {
+        conversationHistory.delete(key);
+      } else {
+        conversationHistory.set(key, filteredHistory);
+      }
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    console.log(`🧹 Cleaned up ${cleanedCount} old messages from conversation history`);
+  }
+}
+
+// Schedule periodic cleanup
+setInterval(cleanupOldHistory, HISTORY_CONFIG.CLEANUP_INTERVAL_MINUTES * 60 * 1000);
+
+// Helper function to get bot user ID
+let botUserId = null;
+async function getBotUserId() {
+  if (!botUserId) {
+    try {
+      const auth = await app.client.auth.test();
+      botUserId = auth.user_id;
+    } catch (error) {
+      console.error('❌ Error getting bot user ID:', error);
+    }
+  }
+  return botUserId;
+}
+
+// Helper function to call backend API with conversation history and thread support
+async function callBackendAPI(userId, message, channel, timestamp, threadTs, logger) {
+  try {
+    const threadInfo = threadTs ? ` (thread: ${threadTs})` : ' (main channel)';
+    logger.info(`🔄 Calling backend API for user ${userId}: "${message}"${threadInfo}`);
+    
+    // Add current user message to history BEFORE getting conversation history
+    console.log(`🔍 DEBUG: Adding message to history - Channel: ${channel}, User: ${userId}, ThreadTs: ${threadTs}`);
+    addToHistory(channel, userId, 'user', message, timestamp, threadTs);
+    
+    // Get conversation history from local memory with thread context (now includes current message)
+    const conversationHx = getConversationHistory(channel, userId, threadTs, 10);
+    
+    logger.info(`📚 Using ${conversationHx.length} messages from local conversation history${threadInfo}`);
+    console.log(`🔍 DEBUG: Conversation key: ${getConversationKey(channel, userId, threadTs)}`);
+    console.log(`🔍 DEBUG: Full conversation history:`, conversationHx);
+    console.log(`🔍 DEBUG: Total stored conversations:`, conversationHistory.size);
+    console.log(`🔍 DEBUG: All conversation keys:`, Array.from(conversationHistory.keys()));
+
+    logger.info(`hey mahesh making call with history`, conversationHx);
     const response = await apiClient.post('/api/chat', {
       userId: userId,
       message: message,
       channel: channel,
       timestamp: timestamp,
       metadata: {
-        thread_ts: timestamp,
-        conversation_history: []
+        thread_ts: threadTs || timestamp,
+        conversation_history: conversationHx,
+        history_count: conversationHx.length,
+        is_thread: !!threadTs
       }
     });
     
     logger.info(`✅ Backend API response received`);
+    
+    // Add bot response to history with thread context
+    if (response.data.reply) {
+      addToHistory(channel, userId, 'assistant', response.data.reply, new Date().toISOString(), threadTs);
+    }
+    
     return {
       success: true,
       reply: response.data.reply || response.data.text,
       text: response.data.text,
       blocks: response.data.blocks,
       confidence: response.data.confidence,
-      processingTime: response.data.processing_time_ms
+      processingTime: response.data.processing_time_ms,
+      historyCount: conversationHx.length,
+      isThread: !!threadTs
     };
   } catch (error) {
     logger.error('❌ Backend API error:', error.response?.data || error.message);
@@ -57,86 +204,145 @@ async function callBackendAPI(userId, message, channel, timestamp, logger) {
   }
 }
 
-// Basic message handler - responds when bot is mentioned
+// Basic message handler - responds when bot is mentioned OR in threads
 app.message(async ({ message, say, logger }) => {
-  // Check if bot was mentioned
-  if (message.text && message.text.includes(`<@${app.client.auth.test().user_id}>`)) {
-    logger.info(`Bot mentioned in message: ${message.text}`);
+  try {
+    // Get bot user ID
+    const currentBotUserId = await getBotUserId();
+    logger.info("hey bot is called in message")
     
-    // Call backend API
-    const result = await callBackendAPI(
-      message.user, 
-      message.text, 
-      message.channel, 
-      message.ts, 
-      logger
-    );
+    // Check if bot was mentioned OR if we're in a thread (for multi-message conversations)
+    const isBotMentioned = message.text && message.text.includes(`<@${currentBotUserId}>`);
+    const isInThread = message.thread_ts; // This indicates we're in a thread
     
-    if (result.success) {
-      await say({
-        text: result.reply,
-        thread_ts: message.ts
-      });
-    } else {
-      await say({
-        text: `Sorry, I encountered an error: ${result.error}. Please make sure the backend server is running.`,
-        thread_ts: message.ts
-      });
+    console.log(`🔍 DEBUG: Message details:`, {
+      text: message.text,
+      thread_ts: message.thread_ts,
+      ts: message.ts,
+      isBotMentioned,
+      isInThread,
+      channel: message.channel,
+      user: message.user
+    });
+    
+    if (isBotMentioned || isInThread) {
+      logger.info(`Processing message: ${isBotMentioned ? 'bot mentioned' : 'in thread'} - ${message.text}`);
+      console.log(`💬 Processing message from user ${message.user} in channel ${message.channel}${isInThread ? ' (thread)' : ''}`);
+      
+      // Extract clean message without bot mention
+      const cleanMessage = message.text ? message.text.replace(`<@${currentBotUserId}>`, '').trim() : message.text;
+      
+      // Call backend API with conversation history
+      const result = await callBackendAPI(
+        message.user, 
+        cleanMessage || message.text, 
+        message.channel, 
+        message.ts,
+        message.thread_ts, // Pass thread timestamp if in thread
+        logger
+      );
+      
+      if (result.success) {
+        // Always reply in a thread to maintain conversation continuity
+        const threadTs = message.thread_ts || message.ts;
+        await say({
+          text: result.reply,
+          thread_ts: threadTs
+        });
+        
+        logger.info(`✅ Response sent successfully (${result.processingTime}ms, ${result.historyCount} context messages)`);
+      } else {
+        await say({
+          text: `Sorry, I encountered an error: ${result.error}. Please make sure the backend server is running.`,
+          thread_ts: message.thread_ts || message.ts
+        });
+      }
     }
+  } catch (error) {
+    logger.error('❌ Error in message handler:', error);
+    await say({
+      text: 'Sorry, I encountered an unexpected error. Please try again.',
+      thread_ts: message.thread_ts || message.ts
+    }).catch(err => logger.error('Failed to send error message:', err));
   }
 });
 
 // Direct mention handler (@bot command)
 app.event('app_mention', async ({ event, say, logger }) => {
-  logger.info(`Bot mentioned: ${event.text}`);
-  
-  // Call backend API
-  const result = await callBackendAPI(
-    event.user, 
-    event.text, 
-    event.channel, 
-    event.ts, 
-    logger
-  );
-  
-  if (result.success) {
-    // Debug: Log what we received from backend
-    logger.info('Backend response data:', JSON.stringify({
-      hasText: !!result.text,
-      hasReply: !!result.reply,
-      hasBlocks: !!result.blocks,
-      textValue: result.text,
-      replyValue: result.reply
-    }));
+  try {
+    logger.info(`Bot mentioned: ${event.text}`);
+    console.log(`🎯 App mention from user ${event.user} in channel ${event.channel}`, event);
+
+    // Get bot user ID for cleaning message
+    const currentBotUserId = await getBotUserId();
     
-    // Handle both text and Block Kit responses
-    const response = {
-      channel: event.channel,
-      thread_ts: event.ts
-    };
+    // Extract clean message without bot mention
+    const cleanMessage = event.text.replace(`<@${currentBotUserId}>`, '').trim();
+
+    // Call backend API with conversation history
+    const result = await callBackendAPI(
+      event.user, 
+      cleanMessage || event.text, 
+      event.channel, 
+      event.ts,
+      event.thread_ts, // Pass thread timestamp if in thread
+      logger
+    );
     
-    // Always ensure we have text (required by Slack)
-    const fallbackText = result.text || result.reply || 'Response received from backend';
-    response.text = fallbackText;
-    
-    // If backend returns blocks (button format), add them
-    if (result.blocks) {
-      response.blocks = result.blocks;
+    if (result.success) {
+      // Debug: Log what we received from backend
+      logger.info('Backend response data:', JSON.stringify({
+        hasText: !!result.text,
+        hasReply: !!result.reply,
+        hasBlocks: !!result.blocks,
+        textValue: result.text,
+        replyValue: result.reply
+      }));
+      
+      // Handle both text and Block Kit responses
+      const response = {
+        channel: event.channel,
+        thread_ts: event.thread_ts || event.ts // Reply in thread if mention is in thread
+      };
+      
+      // Always ensure we have text (required by Slack)
+      const fallbackText = result.text || result.reply || 'Response received from backend';
+      
+      // Add context information if we used conversation history
+      const responseText = result.historyCount > 0 
+        ? `${fallbackText}\n\n_💭 Used ${result.historyCount} previous messages for context_`
+        : fallbackText;
+      
+      response.text = responseText;
+      
+      // If backend returns blocks (button format), add them
+      if (result.blocks) {
+        response.blocks = result.blocks;
+      }
+      
+      logger.info('Sending to Slack:', JSON.stringify({
+        hasText: !!response.text,
+        hasBlocks: !!response.blocks,
+        textLength: response.text?.length
+      }));
+      
+      await say(response);
+      
+      logger.info(`✅ Mention response sent successfully (${result.processingTime}ms, ${result.historyCount} context messages)`);
+    } else {
+      await say({
+        text: `Sorry, I encountered an error: ${result.error}. Please make sure the backend server is running on ${BACKEND_API_URL}`,
+        channel: event.channel,
+        thread_ts: event.thread_ts || event.ts
+      });
     }
-    
-    logger.info('Sending to Slack:', JSON.stringify({
-      hasText: !!response.text,
-      hasBlocks: !!response.blocks,
-      textLength: response.text?.length
-    }));
-    
-    await say(response);
-  } else {
+  } catch (error) {
+    logger.error('❌ Error in app_mention handler:', error);
     await say({
-      text: `Sorry, I encountered an error: ${result.error}. Please make sure the backend server is running on ${BACKEND_API_URL}`,
+      text: 'Sorry, I encountered an unexpected error. Please try again.',
       channel: event.channel,
-      thread_ts: event.ts
-    });
+      thread_ts: event.thread_ts || event.ts
+    }).catch(err => logger.error('Failed to send error message:', err));
   }
 });
 
@@ -159,9 +365,18 @@ app.error((error) => {
     console.log('  ✅ Slack Bot Framework: @slack/bolt');
     console.log('  ✅ HTTP Client: axios');
     console.log('  ✅ Backend Integration: Configured');
+    console.log('  ✅ Conversation History: Local in-memory storage');
+    console.log('  ✅ Thread Support: Thread-aware context tracking');
+    console.log('  ✅ Auto Cleanup: 24-hour history expiry');
     console.log('');
-    console.log('🎯 Ready to process Slack messages and forward to LangChain backend!');
+    console.log('🎯 Ready to process Slack messages with conversation context!');
     console.log('💡 Make sure your backend server is running on port 3000');
+    console.log('');
+    console.log('🧠 Local Memory Conversation Features:');
+    console.log('  • Maintains up to 20 messages per user per channel');
+    console.log('  • Uses only local memory (no Slack API calls)');
+    console.log('  • Auto-expires messages after 24 hours');
+    console.log('  • Thread-aware conversation tracking');
     console.log('');
     
     // Test backend connection
