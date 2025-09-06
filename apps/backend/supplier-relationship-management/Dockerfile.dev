@@ -1,0 +1,35 @@
+# Development Dockerfile with hot reloading
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
+
+# Create directory for SQLite database
+RUN mkdir -p /app/data && chown nestjs:nodejs /app/data
+
+# Copy source code (will be overridden by volume mount in development)
+COPY . .
+RUN chown -R nestjs:nodejs /app
+
+# Switch to non-root user
+USER nestjs
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "const http = require('http'); const options = { host: 'localhost', port: 3000, path: '/api/v1/suppliers', timeout: 2000 }; const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.end();"
+
+# Start the application in development mode with hot reloading
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["npm", "run", "start:dev"]

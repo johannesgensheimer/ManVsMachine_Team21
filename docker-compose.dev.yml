@@ -2,7 +2,7 @@ services:
   supplier-relationship-management:
     build:
       context: ./apps/backend/supplier-relationship-management
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
     environment:
@@ -10,17 +10,24 @@ services:
       - PORT=3000
       - DATABASE_PATH=/app/data/suppliers.db
       - DATABASE_SYNC=true
-      - DATABASE_LOGGING=false
+      - DATABASE_LOGGING=true
       - CORS_ORIGIN=http://localhost:3001
     volumes:
       # Persist SQLite database
       - supplier_data:/app/data
+      # Mount source code for hot reloading
+      - ./apps/backend/supplier-relationship-management/src:/app/src
+      - ./apps/backend/supplier-relationship-management/package.json:/app/package.json
+      - ./apps/backend/supplier-relationship-management/tsconfig.json:/app/tsconfig.json
+      - ./apps/backend/supplier-relationship-management/nest-cli.json:/app/nest-cli.json
+      # Exclude node_modules to avoid conflicts
+      - /app/node_modules
     healthcheck:
       test: ["CMD", "node", "-e", "const http = require('http'); const options = { host: 'localhost', port: 3000, path: '/api/v1/suppliers', timeout: 2000 }; const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.end();"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
     restart: unless-stopped
 
 volumes:

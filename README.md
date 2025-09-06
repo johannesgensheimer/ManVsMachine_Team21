@@ -10,8 +10,8 @@ This is a monorepo containing both backend and frontend applications:
 ManVsMachine_Team21/
 ├── apps/
 │   ├── backend/
-│   │   └── suppliers-service/     # NestJS microservice
-│   └── frontend/                  # Future React/Next.js app (placeholder)
+│   │   └── supplier-relationship-management/     # NestJS microservice
+│   └── frontend/                                  # Future React/Next.js app (placeholder)
 ├── packages/
 │   └── shared/                    # Shared types and utilities
 ├── docs/
@@ -54,7 +54,11 @@ ManVsMachine_Team21/
 
 2. **Start the services:**
    ```bash
+   # Production mode
    docker-compose up
+   
+   # Development mode with hot reloading
+   npm run docker:dev
    ```
 
 3. **Access the application:**
@@ -70,7 +74,7 @@ ManVsMachine_Team21/
 
 1. **Install dependencies:**
    ```bash
-   cd apps/backend/suppliers-service
+   cd apps/backend/supplier-relationship-management
    npm install
    ```
 
@@ -171,7 +175,7 @@ curl -X PATCH http://localhost:3000/api/v1/suppliers/Test%20Supplier%20Co \
 
 ## Development Commands
 
-### Backend (suppliers-service)
+### Backend (supplier-relationship-management)
 ```bash
 # Development
 npm run start:dev
@@ -193,6 +197,20 @@ npm run format
 ```
 
 ### Docker
+
+#### Development (with hot reloading)
+```bash
+# Start development environment
+npm run docker:dev
+
+# Build and start development environment
+npm run docker:dev:build
+
+# Stop development environment
+npm run docker:dev:down
+```
+
+#### Production
 ```bash
 # Build containers
 docker-compose build

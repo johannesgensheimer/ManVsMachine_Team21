@@ -42,7 +42,7 @@ async function bootstrap() {
   const port = configService.get('port');
   await app.listen(port);
 
-  console.log(`🚀 Suppliers Service running on: http://localhost:${port}`);
+  console.log(`🚀 Supplier Relationship Management Service running on: http://localhost:${port}`);
   console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
 }
 bootstrap();

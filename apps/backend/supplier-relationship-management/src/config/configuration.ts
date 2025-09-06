@@ -11,7 +11,7 @@ export default () => ({
   },
   swagger: {
     title: 'Supplier Relationship Management API',
-    description: 'API for managing supplier relationships',
+    description: 'AI-native Supplier Relationship Management Co-pilot API for procurement professionals',
     version: '1.0',
   },
 });
