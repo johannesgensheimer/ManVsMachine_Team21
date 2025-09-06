@@ -2,6 +2,9 @@
 node_modules/
 npm-debug.log*
 
+# Build output
+dist/
+
 # Environment variables
 .env
 
@@ -17,5 +20,3 @@ Thumbs.db
 *.pid
 *.seed
 *.pid.lock
-
-.env

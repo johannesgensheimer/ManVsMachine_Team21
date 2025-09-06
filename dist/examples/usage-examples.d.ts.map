@@ -1,1 +1,0 @@
-{"version":3,"file":"usage-examples.d.ts","sourceRoot":"","sources":["../../src/examples/usage-examples.ts"],"names":[],"mappings":"AAuHA,qBAAa,eAAe;IAC1B,OAAO,CAAC,GAAG,CAAwB;;IAM7B,UAAU;IAKV,kBAAkB,CAAC,IAAI,EAAE,MAAM,EAAE,MAAM,EAAE,MAAM,EAAE,WAAW,EAAE,MAAM,EAAE,YAAY,EAAE,MAAM,EAAE,YAAY,EAAE,MAAM;;;;;IAmBhH,wBAAwB;;;;;IAmBxB,iBAAiB,CAAC,YAAY,EAAE,MAAM;;;;;IAStC,OAAO;CAGd"}
