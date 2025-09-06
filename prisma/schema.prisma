@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Supplier {
+  id          Int           @id @default(autoincrement())
+  name        String
+  domain      String        @unique
+  status      String        // e.g., "active", "inactive", "pending"
+  tier        String        // e.g., "gold", "silver", "bronze"
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  
+  contacts     Contact[]
+  interactions Interaction[]
+  notes        Note[]
+  
+  @@map("suppliers")
+}
+
+model Contact {
+  id          Int           @id @default(autoincrement())
+  supplierId  Int           @map("supplier_id")
+  firstName   String        @map("first_name")
+  lastName    String        @map("last_name")
+  title       String?
+  email       String
+  phone       String?
+  linkedinUrl String?       @map("linkedin_url")
+  
+  supplier     Supplier      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  interactions Interaction[]
+  
+  @@unique([supplierId, email])
+  @@map("contacts")
+}
+
+model Interaction {
+  id            Int      @id @default(autoincrement())
+  supplierId    Int      @map("supplier_id")
+  contactId     Int?     @map("contact_id")
+  channel       String   // e.g., "email", "phone", "slack", "meeting"
+  summary       String
+  sentiment     String   // e.g., "positive", "neutral", "negative"
+  occurredAt    DateTime @map("occurred_at")
+  slackThreadId String?  @map("slack_thread_id")
+  
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  
+  @@map("interactions")
+}
+
+model Note {
+  id         Int      @id @default(autoincrement())
+  supplierId Int      @map("supplier_id")
+  authorId   String   @map("author_id") // Could be user ID or system identifier
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  
+  @@map("notes")
+}
