@@ -34,6 +34,7 @@ async function bootstrap() {
     .setDescription(swaggerConfig.description)
     .setVersion(swaggerConfig.version)
     .addTag('suppliers')
+    .addTag('srm-agent')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
