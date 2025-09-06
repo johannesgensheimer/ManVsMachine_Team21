@@ -8,8 +8,8 @@ export const manageContactTool = new DynamicStructuredTool({
   description: 'Create, update, or retrieve contact information for suppliers. Can handle all contact CRUD operations.',
   schema: z.object({
     action: z.enum(['create', 'update', 'get', 'delete']).describe('The action to perform'),
-    contactId: z.number().optional().describe('Contact ID (required for update, get, delete)'),
-    supplierId: z.number().optional().describe('Supplier ID (required for create)'),
+    contactId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).optional().describe('Contact ID (required for update, get, delete)'),
+    supplierId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).optional().describe('Supplier ID (required for create)'),
     firstName: z.string().optional().describe('Contact first name'),
     lastName: z.string().optional().describe('Contact last name'),
     title: z.string().optional().describe('Contact job title'),
@@ -134,10 +134,10 @@ export const searchContactsTool = new DynamicStructuredTool({
     name: z.string().optional().describe('Search by first or last name (partial match)'),
     email: z.string().optional().describe('Search by email (partial match)'),
     title: z.string().optional().describe('Search by job title (partial match)'),
-    supplierId: z.number().optional().describe('Filter by specific supplier ID'),
+    supplierId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).optional().describe('Filter by specific supplier ID'),
     supplierName: z.string().optional().describe('Filter by supplier name (partial match)'),
     hasLinkedIn: z.boolean().optional().describe('Filter contacts with LinkedIn profiles'),
-    limit: z.number().default(20).describe('Maximum number of results')
+    limit: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).default(20).describe('Maximum number of results')
   }),
   func: async ({ name, email, title, supplierId, supplierName, hasLinkedIn, limit }) => {
     const where: any = {};

@@ -76,6 +76,11 @@ export class SupplierManagementApp {
     return this.agent.analyzeSentiment(supplierId, days);
   }
 
+  // Get available tools information
+  getAvailableTools() {
+    return this.agent.getAvailableTools();
+  }
+
   // Cleanup method
   async cleanup() {
     await prisma.$disconnect();

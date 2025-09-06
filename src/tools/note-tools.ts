@@ -7,7 +7,7 @@ export const addNoteTool = new DynamicStructuredTool({
   name: 'add_note',
   description: 'Add a note to a supplier record. Useful for recording important information, decisions, or observations.',
   schema: z.object({
-    supplierId: z.number().describe('The supplier ID to add the note to'),
+    supplierId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).describe('The supplier ID to add the note to'),
     body: z.string().describe('The note content'),
     authorId: z.string().default('system').describe('The author of the note (user ID or system identifier)')
   }),
@@ -48,12 +48,12 @@ export const getNotesTool = new DynamicStructuredTool({
   name: 'get_notes',
   description: 'Retrieve notes for a supplier with optional search and filtering capabilities.',
   schema: z.object({
-    supplierId: z.number().describe('The supplier ID to get notes for'),
+    supplierId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).describe('The supplier ID to get notes for'),
     searchText: z.string().optional().describe('Search within note content (partial match)'),
     authorId: z.string().optional().describe('Filter by specific author'),
     createdAfter: z.string().optional().describe('Get notes created after this date (ISO string)'),
     createdBefore: z.string().optional().describe('Get notes created before this date (ISO string)'),
-    limit: z.number().default(20).describe('Maximum number of notes to return')
+    limit: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).default(20).describe('Maximum number of notes to return')
   }),
   func: async ({ supplierId, searchText, authorId, createdAfter, createdBefore, limit }) => {
     const where: any = { supplierId };
@@ -100,7 +100,7 @@ export const searchNotesTool = new DynamicStructuredTool({
     supplierName: z.string().optional().describe('Filter by supplier name (partial match)'),
     createdAfter: z.string().optional().describe('Get notes created after this date (ISO string)'),
     createdBefore: z.string().optional().describe('Get notes created before this date (ISO string)'),
-    limit: z.number().default(30).describe('Maximum number of notes to return')
+    limit: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).default(30).describe('Maximum number of notes to return')
   }),
   func: async ({ searchText, authorId, supplierName, createdAfter, createdBefore, limit }) => {
     const where: any = {

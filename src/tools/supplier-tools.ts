@@ -8,9 +8,9 @@ export const getSupplierOverviewTool = new DynamicStructuredTool({
   name: 'get_supplier_overview',
   description: 'Get complete supplier information including contacts, recent interactions, and notes. Use supplier ID or domain to find the supplier.',
   schema: z.object({
-    supplierId: z.number().optional().describe('The supplier ID'),
+    supplierId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).optional().describe('The supplier ID'),
     domain: z.string().optional().describe('The supplier domain (e.g., "acme.com")'),
-    includeDays: z.number().default(30).describe('Number of days of interaction history to include'),
+    includeDays: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).default(30).describe('Number of days of interaction history to include'),
     includeNotes: z.boolean().default(true).describe('Whether to include recent notes'),
   }),
   func: async ({ supplierId, domain, includeDays, includeNotes }) => {
@@ -81,7 +81,7 @@ export const searchSuppliersTool = new DynamicStructuredTool({
     tier: z.string().optional().describe('Filter by tier (e.g., "gold", "silver", "bronze")'),
     createdAfter: z.string().optional().describe('Find suppliers created after this date (ISO string)'),
     createdBefore: z.string().optional().describe('Find suppliers created before this date (ISO string)'),
-    limit: z.number().default(20).describe('Maximum number of results to return')
+    limit: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).default(20).describe('Maximum number of results to return')
   }),
   func: async ({ name, domain, status, tier, createdAfter, createdBefore, limit }) => {
     const where: any = {};
@@ -137,7 +137,7 @@ export const updateSupplierStatusTool = new DynamicStructuredTool({
   name: 'update_supplier_status',
   description: 'Update a supplier\'s status or tier. Useful for managing supplier relationships.',
   schema: z.object({
-    supplierId: z.number().describe('The supplier ID to update'),
+    supplierId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).describe('The supplier ID to update'),
     status: z.string().optional().describe('New status (e.g., "active", "inactive", "pending")'),
     tier: z.string().optional().describe('New tier (e.g., "gold", "silver", "bronze")'),
     reason: z.string().optional().describe('Reason for the update (will be added as a note)')

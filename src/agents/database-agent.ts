@@ -39,9 +39,33 @@ To use a tool, please use the following format:
 \`\`\`
 Thought: Do I need to use a tool? Yes
 Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
+Action Input: the input to the action as valid JSON with quoted keys and values
 Observation: the result of the action
 \`\`\`
+
+IMPORTANT: Action Input must be valid JSON with properly quoted keys and string values. Examples:
+- Good: {{"action": "create", "supplierId": 1, "firstName": "John", "lastName": "Smith", "email": "john@example.com"}}
+- Bad: {{action: create, supplierId: 1, firstName: John Smith, email: john@example.com}}
+
+For contact management (manage_contact):
+- Create: {{"action": "create", "supplierId": 1, "firstName": "John", "lastName": "Smith", "email": "john@example.com", "title": "CEO"}}
+- Update: {{"action": "update", "contactId": 1, "title": "New Title"}}
+- Get: {{"action": "get", "contactId": 1}}
+
+For interactions:
+- Log (log_interaction): {{"supplierId": 1, "channel": "meeting", "summary": "Discussed partnership", "sentiment": "positive"}}
+- Analyze trends (analyze_sentiment_trends): {{"supplierId": 1, "days": 30, "groupBy": "week"}}
+- Get history (get_interaction_history): {{"supplierId": 1, "days": 30}}
+
+For supplier operations:
+- Search (search_suppliers): {{"status": "active", "tier": "gold"}}
+- Create (create_supplier): {{"name": "Company Name", "domain": "company.com", "status": "active", "tier": "silver"}}
+- Get overview (get_supplier_overview): {{"supplierId": 1}}
+- Update status (update_supplier_status): {{"supplierId": 1, "status": "active", "tier": "gold"}}
+
+For notes:
+- Add (add_note): {{"supplierId": 1, "body": "Important note text", "authorId": "user123"}}
+- Search (search_notes): {{"query": "contract", "supplierId": 1}}
 
 When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
 
