@@ -1,0 +1,28 @@
+services:
+  suppliers-service:
+    build:
+      context: ./apps/backend/suppliers-service
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_PATH=/app/data/suppliers.db
+      - DATABASE_SYNC=true
+      - DATABASE_LOGGING=false
+      - CORS_ORIGIN=http://localhost:3001
+    volumes:
+      # Persist SQLite database
+      - suppliers_data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const options = { host: 'localhost', port: 3000, path: '/api/v1/suppliers', timeout: 2000 }; const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  suppliers_data:
+    driver: local
