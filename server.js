@@ -42,7 +42,9 @@ async function callBackendAPI(userId, message, channel, timestamp, logger) {
     logger.info(`✅ Backend API response received`);
     return {
       success: true,
-      reply: response.data.reply,
+      reply: response.data.reply || response.data.text,
+      text: response.data.text,
+      blocks: response.data.blocks,
       confidence: response.data.confidence,
       processingTime: response.data.processing_time_ms
     };
@@ -98,11 +100,37 @@ app.event('app_mention', async ({ event, say, logger }) => {
   );
   
   if (result.success) {
-    await say({
-      text: result.reply,
+    // Debug: Log what we received from backend
+    logger.info('Backend response data:', JSON.stringify({
+      hasText: !!result.text,
+      hasReply: !!result.reply,
+      hasBlocks: !!result.blocks,
+      textValue: result.text,
+      replyValue: result.reply
+    }));
+    
+    // Handle both text and Block Kit responses
+    const response = {
       channel: event.channel,
       thread_ts: event.ts
-    });
+    };
+    
+    // Always ensure we have text (required by Slack)
+    const fallbackText = result.text || result.reply || 'Response received from backend';
+    response.text = fallbackText;
+    
+    // If backend returns blocks (button format), add them
+    if (result.blocks) {
+      response.blocks = result.blocks;
+    }
+    
+    logger.info('Sending to Slack:', JSON.stringify({
+      hasText: !!response.text,
+      hasBlocks: !!response.blocks,
+      textLength: response.text?.length
+    }));
+    
+    await say(response);
   } else {
     await say({
       text: `Sorry, I encountered an error: ${result.error}. Please make sure the backend server is running on ${BACKEND_API_URL}`,

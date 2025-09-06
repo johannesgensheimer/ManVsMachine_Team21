@@ -6,6 +6,68 @@ import { SupplierManagementApp } from './index';
 // Load environment variables
 dotenv.config();
 
+// Helper function to convert mailto links to Slack Block Kit buttons
+function formatSlackResponse(text: string) {
+  // Check if the response contains a mailto link
+  const mailtoMatch = text.match(/\*\*\[([^\]]+)\]\((mailto:[^)]+)\)\*\*/);
+  
+  if (mailtoMatch) {
+    const buttonText = mailtoMatch[1];
+    const mailtoUrl = mailtoMatch[2];
+    
+    // Extract email info from the response
+    const subjectMatch = text.match(/Subject:\s*([^\n]+)/);
+    const recipientMatch = text.match(/Email draft ready for ([^!]+)!/);
+    
+    const subject = subjectMatch ? subjectMatch[1] : 'Email Draft';
+    const recipient = recipientMatch ? recipientMatch[1] : 'Contact';
+    
+    // Create fallback text for accessibility
+    const fallbackText = `📧 Email draft ready for ${recipient}! Subject: ${subject}. Click the button to open in your email client.`;
+    
+    // Create Block Kit format with required text fallback
+    return {
+      text: fallbackText, // Required fallback text
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `📧 *Email draft ready for ${recipient}!*\n*Subject:* ${subject}`
+          }
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: '📧 Review Email and Send',
+                emoji: true
+              },
+              style: 'primary',
+              url: mailtoUrl
+            }
+          ]
+        },
+        {
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: '💡 Click the button above to open your email client with the pre-filled draft'
+            }
+          ]
+        }
+      ]
+    };
+  }
+  
+  // Return original text if no mailto link found
+  return { text };
+}
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -87,9 +149,12 @@ app.post('/api/chat', async (req, res) => {
     
     const processingTime = Date.now() - startTime;
     
+    // Format response for Slack (convert mailto links to buttons)
+    const slackResponse = formatSlackResponse(result.output);
+    
     // Return the response in Slack bot expected format
     res.json({
-      reply: result.output,
+      ...slackResponse,
       confidence: result.error ? 0.1 : 0.95,
       processing_time_ms: processingTime,
       context_used: chatHistory.length > 0,
