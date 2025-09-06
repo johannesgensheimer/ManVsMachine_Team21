@@ -48,6 +48,7 @@ app.get('/health', (req, res) => {
 app.post('/api/chat', async (req, res) => {
   try {
     const { userId, message, channel, timestamp, metadata } = req.body;
+    console.log(`hey mahesh recieved history`, metadata);
     
     // Validate input
     if (!userId || !message || !channel) {
@@ -80,7 +81,15 @@ app.post('/api/chat', async (req, res) => {
     const startTime = Date.now();
     
     // Extract conversation history if provided in metadata
-    const chatHistory = metadata?.conversation_history || [];
+    const conversationHistory = metadata?.conversation_history || [];
+    
+    // Convert conversation history from objects to strings for the agent
+    const chatHistory = conversationHistory.map((msg: any) => {
+      const role = msg.role === 'user' ? '👤 User' : '🤖 Assistant';
+      return `${role}: ${msg.content}`;
+    });
+    
+    console.log(`📚 Converted conversation history for agent:`, chatHistory);
     
     // Call the OpenAI agent
     const result = await supplierApp.query(message, chatHistory);
