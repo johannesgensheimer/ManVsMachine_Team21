@@ -43,9 +43,16 @@ Action Input: the input to the action as valid JSON with quoted keys and values
 Observation: the result of the action
 \`\`\`
 
-IMPORTANT: Action Input must be valid JSON with properly quoted keys and string values. Examples:
-- Good: {{"action": "create", "supplierId": 1, "firstName": "John", "lastName": "Smith", "email": "john@example.com"}}
-- Bad: {{action: create, supplierId: 1, firstName: John Smith, email: john@example.com}}
+CRITICAL: Action Input MUST be valid JSON with properly quoted keys and ALL string values in quotes. 
+ALWAYS use double quotes for keys and string values. Numbers can be unquoted.
+
+Examples:
+- CORRECT: {{"status": "active", "limit": 10}}
+- CORRECT: {{"supplierId": 1, "firstName": "John", "lastName": "Smith"}}
+- WRONG: {{status: active, limit: 10}}
+- WRONG: {{'status': 'active'}}
+
+If you make a JSON syntax error, the tool will fail. Double-check your JSON format!
 
 For contact management (manage_contact):
 - Create: {{"action": "create", "supplierId": 1, "firstName": "John", "lastName": "Smith", "email": "john@example.com", "title": "CEO"}}
@@ -96,9 +103,10 @@ export class DatabaseAgent {
     // Initialize the LLM
     this.llm = new ChatOpenAI({
       openAIApiKey: openaiApiKey || process.env.OPENAI_API_KEY,
-      temperature: options.temperature || 0.1,
+      temperature: options.temperature || 0.0, // Lower temperature for more consistent JSON formatting
       modelName: options.model || 'gpt-4-turbo-preview',
       maxTokens: options.maxTokens || 2000,
+      stop: ['\nObservation:'], // Ensure proper stopping
     });
   }
 
@@ -119,7 +127,11 @@ export class DatabaseAgent {
       tools: allTools,
       verbose,
       maxIterations: 10,
-      returnIntermediateSteps: true
+      returnIntermediateSteps: true,
+      handleParsingErrors: (error: Error) => {
+        console.warn('Parsing error occurred:', error.message);
+        return 'I encountered a formatting error. Let me try again with proper JSON formatting.';
+      }
     });
   }
 
