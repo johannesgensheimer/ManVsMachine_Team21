@@ -28,17 +28,29 @@ export {
   noteFunctions
 } from './note-tools';
 
+export {
+  performWebSearch,
+  searchSupplierInfo,
+  searchIndustryTrends,
+  searchCompetitiveAnalysis,
+  searchComplianceInfo,
+  searchMarketResearch,
+  webSearchFunctions
+} from './websearch-tools';
+
 // Collect all function definitions for OpenAI
 import { supplierFunctions } from './supplier-tools';
 import { contactFunctions } from './contact-tools';
 import { interactionFunctions } from './interaction-tools';
 import { noteFunctions } from './note-tools';
+import { webSearchFunctions } from './websearch-tools';
 
 export const allFunctions = [
   ...supplierFunctions,
   ...contactFunctions,
   ...interactionFunctions,
-  ...noteFunctions
+  ...noteFunctions,
+  ...webSearchFunctions
 ];
 
 // Tool function mapping for execution
@@ -101,6 +113,32 @@ export const toolFunctions = {
   manage_note: async (args: any) => {
     const { manageNote } = await import('./note-tools');
     return manageNote(args);
+  },
+
+  // Web search tools
+  perform_web_search: async (args: any) => {
+    const { performWebSearch } = await import('./websearch-tools');
+    return performWebSearch(args);
+  },
+  search_supplier_info: async (args: any) => {
+    const { searchSupplierInfo } = await import('./websearch-tools');
+    return searchSupplierInfo(args);
+  },
+  search_industry_trends: async (args: any) => {
+    const { searchIndustryTrends } = await import('./websearch-tools');
+    return searchIndustryTrends(args);
+  },
+  search_competitive_analysis: async (args: any) => {
+    const { searchCompetitiveAnalysis } = await import('./websearch-tools');
+    return searchCompetitiveAnalysis(args);
+  },
+  search_compliance_info: async (args: any) => {
+    const { searchComplianceInfo } = await import('./websearch-tools');
+    return searchComplianceInfo(args);
+  },
+  search_market_research: async (args: any) => {
+    const { searchMarketResearch } = await import('./websearch-tools');
+    return searchMarketResearch(args);
   }
 };
 
@@ -109,5 +147,6 @@ export const toolCategories = {
   supplier: supplierFunctions,
   contact: contactFunctions,
   interaction: interactionFunctions,
-  note: noteFunctions
+  note: noteFunctions,
+  websearch: webSearchFunctions
 };

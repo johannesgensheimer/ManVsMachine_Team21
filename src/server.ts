@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { SupplierManagementApp } from './index';
+import { WebSearchAgent } from './agents/websearch-agent';
 
 // Load environment variables
 dotenv.config();
@@ -15,6 +16,7 @@ app.use(express.json());
 
 // Initialize the supplier management app
 let supplierApp: SupplierManagementApp;
+let webSearchAgent: WebSearchAgent;
 
 // Initialize the LangChain app on server startup
 async function initializeApp() {
@@ -28,6 +30,16 @@ async function initializeApp() {
     }
     
     console.log('✅ Supplier Management App initialized successfully');
+
+    // Initialize web search agent
+    console.log('🔍 Initializing Web Search Agent...');
+    webSearchAgent = new WebSearchAgent(process.env.OPENAI_API_KEY, {
+      model: 'gpt-4o',
+      verbose: true
+    });
+    await webSearchAgent.initialize();
+    console.log('✅ Web Search Agent initialized successfully');
+    
     return true;
   } catch (error) {
     console.error('❌ Failed to initialize app:', error);
@@ -42,6 +54,286 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     service: 'Supplier Management API'
   });
+});
+
+// Web search endpoints
+app.post('/api/websearch', async (req, res) => {
+  try {
+    const { 
+      query, 
+      model, 
+      allowedDomains, 
+      userLocation, 
+      searchContextSize,
+      temperature 
+    } = req.body;
+    
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Query parameter is required and must be a string',
+          details: 'Request body must contain a query field with a string value',
+          timestamp: new Date().toISOString(),
+          request_id: `req_${Date.now()}`
+        }
+      });
+    }
+
+    if (!webSearchAgent) {
+      return res.status(503).json({
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Web search agent is not initialized',
+          details: 'The web search system is not available',
+          timestamp: new Date().toISOString(),
+          request_id: `req_${Date.now()}`
+        }
+      });
+    }
+
+    console.log(`🔍 Processing web search query: "${query}"`);
+    
+    const startTime = Date.now();
+
+    // Update agent options if provided
+    if (model) webSearchAgent.options.model = model;
+    if (allowedDomains) webSearchAgent.options.allowedDomains = allowedDomains;
+    if (userLocation) webSearchAgent.options.userLocation = userLocation;
+    if (searchContextSize) webSearchAgent.options.searchContextSize = searchContextSize;
+    if (temperature) webSearchAgent.options.temperature = temperature;
+
+    const result = await webSearchAgent.search(query);
+    
+    const processingTime = Date.now() - startTime;
+
+    res.json({
+      success: !result.error,
+      query,
+      response: result.output,
+      citations: result.citations || [],
+      sources: result.sources || [],
+      search_calls: result.searchCalls || [],
+      processing_info: {
+        processing_time_ms: processingTime,
+        model_used: model || 'gpt-4o',
+        citations_count: result.citations?.length || 0,
+        sources_count: result.sources?.length || 0
+      },
+      timestamp: new Date().toISOString(),
+      ...(result.error && { error: result.error })
+    });
+
+  } catch (error) {
+    console.error('❌ Web search error:', error);
+    res.status(500).json({
+      error: {
+        code: 'WEB_SEARCH_ERROR',
+        message: 'Failed to perform web search',
+        details: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date().toISOString(),
+        request_id: `req_${Date.now()}`
+      }
+    });
+  }
+});
+
+// Supplier-specific web search
+app.post('/api/websearch/supplier', async (req, res) => {
+  try {
+    const { companyName, domain } = req.body;
+    
+    if (!companyName || typeof companyName !== 'string') {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Company name is required and must be a string',
+          details: 'Request body must contain a companyName field',
+          timestamp: new Date().toISOString(),
+          request_id: `req_${Date.now()}`
+        }
+      });
+    }
+
+    if (!webSearchAgent) {
+      return res.status(503).json({
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Web search agent is not initialized',
+          details: 'The web search system is not available',
+          timestamp: new Date().toISOString(),
+          request_id: `req_${Date.now()}`
+        }
+      });
+    }
+
+    console.log(`🏢 Searching for supplier info: ${companyName}${domain ? ` (${domain})` : ''}`);
+    
+    const startTime = Date.now();
+    const result = await webSearchAgent.searchSupplierInfo(companyName, domain);
+    const processingTime = Date.now() - startTime;
+
+    res.json({
+      success: !result.error,
+      companyName,
+      domain,
+      response: result.output,
+      citations: result.citations || [],
+      sources: result.sources || [],
+      search_calls: result.searchCalls || [],
+      processing_info: {
+        processing_time_ms: processingTime,
+        citations_count: result.citations?.length || 0,
+        sources_count: result.sources?.length || 0
+      },
+      timestamp: new Date().toISOString(),
+      ...(result.error && { error: result.error })
+    });
+
+  } catch (error) {
+    console.error('❌ Supplier web search error:', error);
+    res.status(500).json({
+      error: {
+        code: 'SUPPLIER_WEB_SEARCH_ERROR',
+        message: 'Failed to search supplier information',
+        details: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date().toISOString(),
+        request_id: `req_${Date.now()}`
+      }
+    });
+  }
+});
+
+// Industry trends web search
+app.post('/api/websearch/industry', async (req, res) => {
+  try {
+    const { industry, region } = req.body;
+    
+    if (!industry || typeof industry !== 'string') {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Industry parameter is required and must be a string',
+          details: 'Request body must contain an industry field',
+          timestamp: new Date().toISOString(),
+          request_id: `req_${Date.now()}`
+        }
+      });
+    }
+
+    if (!webSearchAgent) {
+      return res.status(503).json({
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Web search agent is not initialized',
+          details: 'The web search system is not available',
+          timestamp: new Date().toISOString(),
+          request_id: `req_${Date.now()}`
+        }
+      });
+    }
+
+    console.log(`📊 Searching industry trends: ${industry}${region ? ` in ${region}` : ''}`);
+    
+    const startTime = Date.now();
+    const result = await webSearchAgent.searchIndustryTrends(industry, region);
+    const processingTime = Date.now() - startTime;
+
+    res.json({
+      success: !result.error,
+      industry,
+      region,
+      response: result.output,
+      citations: result.citations || [],
+      sources: result.sources || [],
+      search_calls: result.searchCalls || [],
+      processing_info: {
+        processing_time_ms: processingTime,
+        citations_count: result.citations?.length || 0,
+        sources_count: result.sources?.length || 0
+      },
+      timestamp: new Date().toISOString(),
+      ...(result.error && { error: result.error })
+    });
+
+  } catch (error) {
+    console.error('❌ Industry trends search error:', error);
+    res.status(500).json({
+      error: {
+        code: 'INDUSTRY_TRENDS_SEARCH_ERROR',
+        message: 'Failed to search industry trends',
+        details: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date().toISOString(),
+        request_id: `req_${Date.now()}`
+      }
+    });
+  }
+});
+
+// Compliance/regulatory web search
+app.post('/api/websearch/compliance', async (req, res) => {
+  try {
+    const { industry, region = 'US' } = req.body;
+    
+    if (!industry || typeof industry !== 'string') {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Industry parameter is required and must be a string',
+          details: 'Request body must contain an industry field',
+          timestamp: new Date().toISOString(),
+          request_id: `req_${Date.now()}`
+        }
+      });
+    }
+
+    if (!webSearchAgent) {
+      return res.status(503).json({
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Web search agent is not initialized',
+          details: 'The web search system is not available',
+          timestamp: new Date().toISOString(),
+          request_id: `req_${Date.now()}`
+        }
+      });
+    }
+
+    console.log(`⚖️ Searching compliance info: ${industry} in ${region}`);
+    
+    const startTime = Date.now();
+    const result = await webSearchAgent.searchCompliance(industry, region);
+    const processingTime = Date.now() - startTime;
+
+    res.json({
+      success: !result.error,
+      industry,
+      region,
+      response: result.output,
+      citations: result.citations || [],
+      sources: result.sources || [],
+      search_calls: result.searchCalls || [],
+      processing_info: {
+        processing_time_ms: processingTime,
+        citations_count: result.citations?.length || 0,
+        sources_count: result.sources?.length || 0
+      },
+      timestamp: new Date().toISOString(),
+      ...(result.error && { error: result.error })
+    });
+
+  } catch (error) {
+    console.error('❌ Compliance search error:', error);
+    res.status(500).json({
+      error: {
+        code: 'COMPLIANCE_SEARCH_ERROR',
+        message: 'Failed to search compliance information',
+        details: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date().toISOString(),
+        request_id: `req_${Date.now()}`
+      }
+    });
+  }
 });
 
 // Main chat endpoint for Slack bot integration
@@ -591,6 +883,11 @@ async function startServer() {
   app.listen(port, () => {
     console.log(`🌐 Server running on port ${port}`);
     console.log(`📋 Available endpoints:`);
+    console.log(`\n🔍 Web Search Integration:`);
+    console.log(`  - POST /api/websearch - General web search`);
+    console.log(`  - POST /api/websearch/supplier - Supplier information search`);
+    console.log(`  - POST /api/websearch/industry - Industry trends search`);
+    console.log(`  - POST /api/websearch/compliance - Compliance/regulatory search`);
     console.log(`\n🤖 Slack Bot Integration:`);
     console.log(`  - POST /api/chat - Main Slack bot endpoint`);
     console.log(`  - POST /api/openai/process - Advanced OpenAI processing`);
@@ -603,7 +900,7 @@ async function startServer() {
     console.log(`  - POST /api/documents - Document upload (placeholder)`);
     console.log(`  - GET  /api/tools - List available tools`);
     console.log(`  - GET  /health - Health check`);
-    console.log(`\n🎯 Ready for Slack bot integration!`);
+    console.log(`\n🎯 Ready for Slack bot integration with web search!`);
     console.log(`📝 Test with: node test-slack-integration.js`);
   });
 }

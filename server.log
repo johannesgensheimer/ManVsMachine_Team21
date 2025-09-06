@@ -1,0 +1,90 @@
+
+> manvsmachine-team21@1.0.0 server
+> ts-node src/server.ts
+
+[dotenv@17.2.2] injecting env (0) from .env -- tip: 📡 auto-backup env with Radar: https://dotenvx.com/radar
+[dotenv@17.2.2] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.2] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+🚀 Initializing Supplier Management App...
+🚀 Initializing Supplier Management App...
+🤖 Initializing OpenAI agent...
+📊 Testing database connection...
+prisma:error 
+Invalid `prisma.supplier.findMany()` invocation in
+/home/n8dawg/projects_dev/ManVsMachine_Team21/src/tools/supplier-tools.ts:96:43
+
+  93   if (createdBefore) where.createdAt.lte = new Date(createdBefore);
+  94 }
+  95 
+→ 96 const suppliers = await prisma.supplier.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+✅ Database connection successful
+🤖 OpenAI agent initialized with tools:
+  - get_supplier_overview: Get complete supplier information including contacts, recent interactions, and notes. Use supplier ID or domain to find the supplier.
+  - search_suppliers: Search for suppliers using various filters like name, domain, status, tier, or creation date.
+  - update_supplier_status: Update a supplier's status or tier. Useful for managing supplier relationships.
+  - create_supplier: Create a new supplier record with basic information.
+  - manage_contact: Create, update, or retrieve contact information for suppliers. Can handle all contact CRUD operations.
+  - search_contacts: Search for contacts across all suppliers using name, email, title, or supplier information.
+  - log_interaction: Record a new interaction with a supplier or specific contact. Automatically updates supplier status if needed.
+  - get_interaction_history: Retrieve interaction history with advanced filtering options. Great for analyzing communication patterns.
+  - analyze_sentiment_trends: Analyze sentiment trends over time for suppliers or specific contacts. Useful for relationship health monitoring.
+  - add_note: Add a note to a supplier record. Useful for recording important information, decisions, or observations.
+  - get_notes: Retrieve notes for a supplier with optional search and filtering capabilities.
+  - search_notes: Search notes across all suppliers. Useful for finding information that spans multiple supplier relationships.
+  - manage_note: Update or delete an existing note. Use with caution for delete operations.
+
+✨ App ready! You can now interact with the supplier database using natural language.
+✅ Supplier Management App initialized successfully
+🔍 Initializing Web Search Agent...
+✅ OpenAI connection established for web search
+✅ Web Search Agent initialized successfully
+🌐 Server running on port 3000
+📋 Available endpoints:
+
+🔍 Web Search Integration:
+  - POST /api/websearch - General web search
+  - POST /api/websearch/supplier - Supplier information search
+  - POST /api/websearch/industry - Industry trends search
+  - POST /api/websearch/compliance - Compliance/regulatory search
+
+🤖 Slack Bot Integration:
+  - POST /api/chat - Main Slack bot endpoint
+  - POST /api/openai/process - Advanced OpenAI processing
+  - GET  /api/history/:userId - Chat history retrieval
+  - POST /api/embeddings/search - Document search
+
+🔧 Direct Access:
+  - POST /api/query - Legacy LLM endpoint
+  - GET  /api/suppliers/:id - Get supplier info
+  - POST /api/interactions - Log interactions
+  - POST /api/documents - Document upload (placeholder)
+  - GET  /api/tools - List available tools
+  - GET  /health - Health check
+
+🎯 Ready for Slack bot integration with web search!
+📝 Test with: node test-slack-integration.js
+🔍 Processing web search query: "What are the latest developments in AI technology in January 2025?"
+🔍 Searching the web for: What are the latest developments in AI technology in January 2025?
+✅ Chat completion finished
+🏢 Searching for supplier info: Microsoft (microsoft.com)
+🔍 Searching the web for: Find recent news and information about Microsoft company (microsoft.com)
+✅ Chat completion finished
+📊 Searching industry trends: artificial intelligence in United States
+🔍 Searching the web for: What are the latest trends and developments in the artificial intelligence industry in United States?
+✅ Chat completion finished
+⚖️ Searching compliance info: financial services in US
+🔍 Searching the web for: What are the current regulatory requirements and compliance standards for financial services companies in US?
+✅ Chat completion finished
+🔍 Processing web search query: "Latest SEC regulatory changes"
+🔍 Searching the web for: Latest SEC regulatory changes
+✅ Chat completion finished
+🔍 Processing web search query: "Best restaurants near Times Square"
+🔍 Searching the web for: Best restaurants near Times Square
+✅ Chat completion finished
+🔍 Processing web search query: "What is the current weather in London?"
+🔍 Searching the web for: What is the current weather in London?
+✅ Chat completion finished
+🛑 Received SIGTERM, shutting down gracefully...
