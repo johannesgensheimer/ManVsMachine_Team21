@@ -4,6 +4,7 @@ export {
   searchSuppliers,
   updateSupplierStatus,
   createSupplier,
+  deleteSupplier,
   supplierFunctions
 } from './supplier-tools';
 
@@ -59,6 +60,10 @@ export const toolFunctions = {
   create_supplier: async (args: any) => {
     const { createSupplier } = await import('./supplier-tools');
     return createSupplier(args);
+  },
+  delete_supplier: async (args: any) => {
+    const { deleteSupplier } = await import('./supplier-tools');
+    return deleteSupplier(args);
   },
   
   // Contact tools
