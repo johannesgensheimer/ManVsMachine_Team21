@@ -4,6 +4,7 @@ export {
   searchSuppliers,
   updateSupplierStatus,
   createSupplier,
+  deleteSupplier,
   supplierFunctions
 } from './supplier-tools';
 
@@ -28,17 +29,24 @@ export {
   noteFunctions
 } from './note-tools';
 
+export {
+  draftEmail,
+  draftEmailTool
+} from './email-tools';
+
 // Collect all function definitions for OpenAI
 import { supplierFunctions } from './supplier-tools';
 import { contactFunctions } from './contact-tools';
 import { interactionFunctions } from './interaction-tools';
 import { noteFunctions } from './note-tools';
+import { draftEmailTool } from './email-tools';
 
 export const allFunctions = [
   ...supplierFunctions,
   ...contactFunctions,
   ...interactionFunctions,
-  ...noteFunctions
+  ...noteFunctions,
+  draftEmailTool
 ];
 
 // Tool function mapping for execution
@@ -59,6 +67,10 @@ export const toolFunctions = {
   create_supplier: async (args: any) => {
     const { createSupplier } = await import('./supplier-tools');
     return createSupplier(args);
+  },
+  delete_supplier: async (args: any) => {
+    const { deleteSupplier } = await import('./supplier-tools');
+    return deleteSupplier(args);
   },
   
   // Contact tools
@@ -101,6 +113,12 @@ export const toolFunctions = {
   manage_note: async (args: any) => {
     const { manageNote } = await import('./note-tools');
     return manageNote(args);
+  },
+  
+  // Email tools
+  draft_email: async (args: any) => {
+    const { draftEmail } = await import('./email-tools');
+    return draftEmail(args);
   }
 };
 

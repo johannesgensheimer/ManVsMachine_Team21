@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,34 +8,34 @@ datasource db {
 }
 
 model Supplier {
-  id          Int           @id @default(autoincrement())
-  name        String
-  domain      String        @unique
-  status      String        // e.g., "active", "inactive", "pending"
-  tier        String        // e.g., "gold", "silver", "bronze"
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  
+  id           Int           @id @default(autoincrement())
+  name         String
+  domain       String        @unique
+  status       String
+  tier         String
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
   contacts     Contact[]
   interactions Interaction[]
   notes        Note[]
-  
+  deals        Deal[]
+
   @@map("suppliers")
 }
 
 model Contact {
-  id          Int           @id @default(autoincrement())
-  supplierId  Int           @map("supplier_id")
-  firstName   String        @map("first_name")
-  lastName    String        @map("last_name")
-  title       String?
-  email       String
-  phone       String?
-  linkedinUrl String?       @map("linkedin_url")
-  
+  id           Int           @id @default(autoincrement())
+  supplierId   Int           @map("supplier_id")
+  firstName    String        @map("first_name")
+  lastName     String        @map("last_name")
+  title        String?
+  email        String
+  phone        String?
+  linkedinUrl  String?       @map("linkedin_url")
   supplier     Supplier      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   interactions Interaction[]
-  
+  deals        Deal[]
+
   @@unique([supplierId, email])
   @@map("contacts")
 }
@@ -47,26 +44,52 @@ model Interaction {
   id            Int      @id @default(autoincrement())
   supplierId    Int      @map("supplier_id")
   contactId     Int?     @map("contact_id")
-  channel       String   // e.g., "email", "phone", "slack", "meeting"
+  channel       String
   summary       String
-  sentiment     String   // e.g., "positive", "neutral", "negative"
+  sentiment     String
   occurredAt    DateTime @map("occurred_at")
   slackThreadId String?  @map("slack_thread_id")
-  
-  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  
+  contact       Contact? @relation(fields: [contactId], references: [id])
+  supplier      Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
   @@map("interactions")
 }
 
 model Note {
   id         Int      @id @default(autoincrement())
   supplierId Int      @map("supplier_id")
-  authorId   String   @map("author_id") // Could be user ID or system identifier
+  authorId   String   @map("author_id")
   body       String
   createdAt  DateTime @default(now()) @map("created_at")
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
+
+model Deal {
+  id                 Int       @id @default(autoincrement())
+  supplierId         Int       @map("supplier_id")
+  contactId          Int?      @map("contact_id")
+  title              String
+  description        String?
+  value              Int       // Value in cents to avoid floating point issues
+  currency           String    @default("USD")
+  
+  // Deal Status & Pipeline
+  stage              String    // e.g., "prospecting", "proposal", "negotiation", "closed-won", "closed-lost"
+  status             String    // e.g., "active", "paused", "cancelled", "completed"
+  priority           String    @default("medium") // e.g., "low", "medium", "high", "critical"
+  probability        Int       @default(50) // Win probability percentage (0-100)
+  
+  // Timeline & Ownership
+  expectedCloseDate  DateTime? @map("expected_close_date")
+  actualCloseDate    DateTime? @map("actual_close_date")
+  ownerId            String    @map("owner_id") // User ID of the deal owner
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
   
   supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   
-  @@map("notes")
+  @@map("deals")
 }

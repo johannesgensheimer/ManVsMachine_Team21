@@ -201,6 +201,57 @@ export async function createSupplier({ name, domain, status = 'pending', tier = 
   });
 }
 
+export async function deleteSupplier({ supplierId, reason }: {
+  supplierId: number;
+  reason?: string;
+}) {
+  // First, get the existing supplier with counts for confirmation
+  const existingSupplier = await prisma.supplier.findUnique({
+    where: { id: supplierId },
+    include: {
+      _count: {
+        select: {
+          contacts: true,
+          interactions: true,
+          notes: true
+        }
+      }
+    }
+  });
+
+  if (!existingSupplier) {
+    return JSON.stringify({ error: 'Supplier not found' });
+  }
+
+  // Create a deletion log note if reason provided
+  if (reason) {
+    await prisma.note.create({
+      data: {
+        supplierId,
+        authorId: 'system',
+        body: `Supplier deletion initiated: ${reason}. Supplier: ${existingSupplier.name} (${existingSupplier.domain}). Related data: ${existingSupplier._count.contacts} contacts, ${existingSupplier._count.interactions} interactions, ${existingSupplier._count.notes} notes.`
+      }
+    });
+  }
+
+  // Delete the supplier (cascade will handle related records)
+  await prisma.supplier.delete({
+    where: { id: supplierId }
+  });
+
+  return JSON.stringify({
+    success: true,
+    action: 'delete',
+    message: `Supplier "${existingSupplier.name}" (${existingSupplier.domain}) deleted successfully`,
+    deletedCounts: {
+      contacts: existingSupplier._count.contacts,
+      interactions: existingSupplier._count.interactions,
+      notes: existingSupplier._count.notes + (reason ? 1 : 0) // +1 for deletion log if created
+    },
+    documentationAdded: !!reason
+  });
+}
+
 // OpenAI Function Definitions
 export const supplierFunctions = [
   {
@@ -324,6 +375,24 @@ export const supplierFunctions = [
         }
       },
       required: ['name', 'domain']
+    }
+  },
+  {
+    name: 'delete_supplier',
+    description: 'Delete a supplier and all related data (contacts, interactions, notes). Use with extreme caution as this action cannot be undone.',
+    parameters: {
+      type: 'object',
+      properties: {
+        supplierId: {
+          type: 'number',
+          description: 'The supplier ID to delete'
+        },
+        reason: {
+          type: 'string',
+          description: 'Reason for deletion (will be logged as a note before deletion for audit trail)'
+        }
+      },
+      required: ['supplierId']
     }
   }
 ];
