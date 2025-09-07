@@ -235,7 +235,8 @@ async function populateDatabase() {
             name: row.company_name.trim(),
             domain: row.domain.trim(),
             status: row.status.trim() || 'Active',
-            tier: parseTier(row.tier)
+            tier: parseTier(row.tier),
+            primaryProducts: row.primary_products ? row.primary_products.trim() : null
           }
         });
         
@@ -248,7 +249,7 @@ async function populateDatabase() {
           // Generate dummy email if not provided
           let contactEmail = row.contact_email && row.contact_email.trim() !== '' 
             ? row.contact_email.trim() 
-            : `${row.contact_first_name.trim().toLowerCase()}.${row.contact_last_name.trim().toLowerCase()}@${row.domain.trim()}`;
+            : `${row.contact_first_name.trim().toLowerCase()}@${row.domain.trim()}`;
           
           contact = await prisma.contact.create({
             data: {

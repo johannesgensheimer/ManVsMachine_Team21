@@ -8,17 +8,18 @@ datasource db {
 }
 
 model Supplier {
-  id           Int           @id @default(autoincrement())
-  name         String
-  domain       String        @unique
-  status       String
-  tier         String
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  contacts     Contact[]
-  interactions Interaction[]
-  notes        Note[]
-  deals        Deal[]
+  id               Int           @id @default(autoincrement())
+  name             String
+  domain           String        @unique
+  status           String
+  tier             String
+  primaryProducts  String?       @map("primary_products")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  contacts         Contact[]
+  interactions     Interaction[]
+  notes            Note[]
+  deals            Deal[]
 
   @@map("suppliers")
 }
