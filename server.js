@@ -180,9 +180,18 @@ async function callBackendAPI(userId, message, channel, timestamp, threadTs, log
     
     logger.info(`✅ Backend API response received`);
     
-    // Add bot response to history with thread context
+    // Add bot response to history with thread context (clean response without metadata)
     if (response.data.reply) {
-      addToHistory(channel, userId, 'assistant', response.data.reply, new Date().toISOString(), threadTs);
+      // Clean the response by removing metadata and formatting
+      let cleanResponse = response.data.reply;
+      
+      // Remove context metadata like ":thought_bubble: Used X previous messages for context"
+      cleanResponse = cleanResponse.replace(/:thought_bubble: Used \d+ previous messages for context/g, '');
+      
+      // Remove extra whitespace and newlines
+      cleanResponse = cleanResponse.trim();
+      
+      addToHistory(channel, userId, 'assistant', cleanResponse, new Date().toISOString(), threadTs);
     }
     
     return {
@@ -243,12 +252,43 @@ app.message(async ({ message, say, logger }) => {
       );
       
       if (result.success) {
-        // Always reply in a thread to maintain conversation continuity
-        const threadTs = message.thread_ts || message.ts;
-        await say({
-          text: result.reply,
-          thread_ts: threadTs
+      // Always reply in a thread to maintain conversation continuity
+      const threadTs = message.thread_ts || message.ts;
+      
+      // Clean the response text by removing metadata
+      let responseText = result.reply;
+      
+      // Remove context metadata like ":thought_bubble: Used X previous messages for context"
+      responseText = responseText.replace(/:thought_bubble: Used \d+ previous messages for context/g, '');
+      
+      // Remove extra whitespace and newlines
+      responseText = responseText.trim();
+      
+      await say({
+        text: responseText,
+        thread_ts: threadTs
+      });
+      
+      // If this is the first message in a thread (no thread_ts), we need to copy the conversation
+      // to the new thread context so future thread messages have the full context
+      if (!message.thread_ts) {
+        // Get the main conversation history (including all previous messages and responses)
+        const mainHistory = getConversationHistory(message.channel, message.user, null, 20);
+        
+        // Copy ALL main conversation messages to the new thread context
+        mainHistory.forEach(msg => {
+          addToHistory(message.channel, message.user, msg.role, msg.content, msg.timestamp, threadTs);
         });
+        
+        console.log(`🔄 Copied ${mainHistory.length} messages from main conversation to new thread ${threadTs}`);
+      }
+      
+      // Add bot response to history with thread context (clean response without metadata)
+      if (result.reply) {
+        // Clean the response by removing metadata and formatting
+        let cleanResponse = result.reply.replace(/:thought_bubble: Used \d+ previous messages for context/g, '').trim();
+        addToHistory(message.channel, message.user, 'assistant', cleanResponse, new Date().toISOString(), threadTs);
+      }
         
         logger.info(`✅ Response sent successfully (${result.processingTime}ms, ${result.historyCount} context messages)`);
       } else {
@@ -267,84 +307,7 @@ app.message(async ({ message, say, logger }) => {
   }
 });
 
-// Direct mention handler (@bot command)
-app.event('app_mention', async ({ event, say, logger }) => {
-  try {
-    logger.info(`Bot mentioned: ${event.text}`);
-    console.log(`🎯 App mention from user ${event.user} in channel ${event.channel}`, event);
-
-    // Get bot user ID for cleaning message
-    const currentBotUserId = await getBotUserId();
-    
-    // Extract clean message without bot mention
-    const cleanMessage = event.text.replace(`<@${currentBotUserId}>`, '').trim();
-
-    // Call backend API with conversation history
-    const result = await callBackendAPI(
-      event.user, 
-      cleanMessage || event.text, 
-      event.channel, 
-      event.ts,
-      event.thread_ts, // Pass thread timestamp if in thread
-      logger
-    );
-    
-    if (result.success) {
-      // Debug: Log what we received from backend
-      logger.info('Backend response data:', JSON.stringify({
-        hasText: !!result.text,
-        hasReply: !!result.reply,
-        hasBlocks: !!result.blocks,
-        textValue: result.text,
-        replyValue: result.reply
-      }));
-      
-      // Handle both text and Block Kit responses
-      const response = {
-        channel: event.channel,
-        thread_ts: event.thread_ts || event.ts // Reply in thread if mention is in thread
-      };
-      
-      // Always ensure we have text (required by Slack)
-      const fallbackText = result.text || result.reply || 'Response received from backend';
-      
-      // Add context information if we used conversation history
-      const responseText = result.historyCount > 0 
-        ? `${fallbackText}\n\n_💭 Used ${result.historyCount} previous messages for context_`
-        : fallbackText;
-      
-      response.text = responseText;
-      
-      // If backend returns blocks (button format), add them
-      if (result.blocks) {
-        response.blocks = result.blocks;
-      }
-      
-      logger.info('Sending to Slack:', JSON.stringify({
-        hasText: !!response.text,
-        hasBlocks: !!response.blocks,
-        textLength: response.text?.length
-      }));
-      
-      await say(response);
-      
-      logger.info(`✅ Mention response sent successfully (${result.processingTime}ms, ${result.historyCount} context messages)`);
-    } else {
-      await say({
-        text: `Sorry, I encountered an error: ${result.error}. Please make sure the backend server is running on ${BACKEND_API_URL}`,
-        channel: event.channel,
-        thread_ts: event.thread_ts || event.ts
-      });
-    }
-  } catch (error) {
-    logger.error('❌ Error in app_mention handler:', error);
-    await say({
-      text: 'Sorry, I encountered an unexpected error. Please try again.',
-      channel: event.channel,
-      thread_ts: event.thread_ts || event.ts
-    }).catch(err => logger.error('Failed to send error message:', err));
-  }
-});
+// Note: app_mention handler removed - using unified app.message handler instead
 
 // Error handling
 app.error((error) => {
