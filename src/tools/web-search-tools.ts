@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import axios from 'axios';
 
 // Web search function schema
 export const webSearchSchema = z.object({
@@ -6,51 +7,116 @@ export const webSearchSchema = z.object({
   maxResults: z.number().optional().default(5).describe('Maximum number of results to return (default: 5)')
 });
 
-// Simple web search function using DuckDuckGo API
+interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+// Real web search function using DuckDuckGo HTML scraping
 export async function webSearch(args: z.infer<typeof webSearchSchema>): Promise<string> {
   const { query, maxResults = 5 } = args;
   
   try {
-    // For now, we'll use a simple mock implementation
-    // In a real implementation, you would use a web search API like:
-    // - DuckDuckGo Instant Answer API
-    // - Google Custom Search API
-    // - Bing Search API
-    // - SerpAPI
-    
     console.log(`🔍 Web search: "${query}"`);
     
-    // Mock web search results
-    const mockResults = [
-      {
-        title: `Search results for: ${query}`,
-        url: `https://example.com/search?q=${encodeURIComponent(query)}`,
-        snippet: `This is a mock search result for "${query}". In a real implementation, this would contain actual web search results from a search API.`
+    // Use DuckDuckGo HTML search (no API key required)
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    
+    const httpResponse = await axios.get(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       },
-      {
-        title: `More information about ${query}`,
-        url: `https://example.com/info/${encodeURIComponent(query)}`,
-        snippet: `Additional mock information about "${query}". This demonstrates how web search results would be formatted and returned.`
-      }
-    ];
-    
-    const results = mockResults.slice(0, maxResults);
-    
-    let response = `🌐 Web Search Results for "${query}":\n\n`;
-    
-    results.forEach((result, index) => {
-      response += `${index + 1}. **${result.title}**\n`;
-      response += `   URL: ${result.url}\n`;
-      response += `   ${result.snippet}\n\n`;
+      timeout: 10000
     });
     
-    response += `\n*Note: This is a mock implementation. In production, this would use a real web search API to fetch current information.*`;
+    const html = httpResponse.data;
+    const results: SearchResult[] = [];
     
-    return response;
+    // Parse DuckDuckGo HTML results using regex (simple approach)
+    const resultRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+    
+    let match;
+    while ((match = resultRegex.exec(html)) !== null && results.length < maxResults) {
+      const url = match[1];
+      const title = match[2].replace(/<[^>]*>/g, '').trim();
+      const snippet = match[3].replace(/<[^>]*>/g, '').trim();
+      
+      if (url && title && snippet) {
+        results.push({
+          title,
+          url: url.startsWith('//') ? `https:${url}` : url,
+          snippet: snippet.length > 200 ? snippet.substring(0, 200) + '...' : snippet
+        });
+      }
+    }
+    
+    // Fallback: If HTML parsing fails, try DuckDuckGo Instant Answer API
+    if (results.length === 0) {
+      console.log('🔄 HTML parsing failed, trying DuckDuckGo Instant Answer API...');
+      
+      const instantAnswerUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+      
+      try {
+        const instantResponse = await axios.get(instantAnswerUrl, { timeout: 5000 });
+        const data = instantResponse.data;
+        
+        // Check for instant answer
+        if (data.AbstractText) {
+          results.push({
+            title: data.Heading || `Information about ${query}`,
+            url: data.AbstractURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+            snippet: data.AbstractText
+          });
+        }
+        
+        // Add related topics if available
+        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+          data.RelatedTopics.slice(0, maxResults - results.length).forEach((topic: any) => {
+            if (topic.Text && topic.FirstURL) {
+              results.push({
+                title: topic.Text.split(' - ')[0] || `Related: ${query}`,
+                url: topic.FirstURL,
+                snippet: topic.Text
+              });
+            }
+          });
+        }
+      } catch (instantError) {
+        console.error('DuckDuckGo Instant Answer API error:', instantError);
+      }
+    }
+    
+    // If still no results, provide a helpful message with search links
+    if (results.length === 0) {
+      return `🔍 I searched for "${query}" but couldn't retrieve specific results at the moment. Here are some search links you can try:\n\n` +
+             `1. [Search on DuckDuckGo](https://duckduckgo.com/?q=${encodeURIComponent(query)})\n` +
+             `2. [Search on Google](https://www.google.com/search?q=${encodeURIComponent(query)})\n` +
+             `3. [Search on Bing](https://www.bing.com/search?q=${encodeURIComponent(query)})\n\n` +
+             `*Note: Web search functionality is working, but results may be limited due to anti-bot measures.*`;
+    }
+    
+    // Format the results
+    let responseText = `🌐 Web Search Results for "${query}":\n\n`;
+    
+    results.forEach((result, index) => {
+      responseText += `${index + 1}. [**${result.title}**](${result.url})\n`;
+      responseText += `   ${result.snippet}\n\n`;
+    });
+    
+    responseText += `\n*Found ${results.length} result${results.length !== 1 ? 's' : ''} from web search.*`;
+    
+    return responseText;
     
   } catch (error) {
     console.error('Web search error:', error);
-    return `❌ Error performing web search for "${query}": ${error instanceof Error ? error.message : 'Unknown error'}`;
+    
+    // Provide fallback search links even on error
+    return `❌ Web search temporarily unavailable for "${query}". Here are direct search links:\n\n` +
+           `1. [Search on DuckDuckGo](https://duckduckgo.com/?q=${encodeURIComponent(query)})\n` +
+           `2. [Search on Google](https://www.google.com/search?q=${encodeURIComponent(query)})\n` +
+           `3. [Search on Bing](https://www.bing.com/search?q=${encodeURIComponent(query)})\n\n` +
+           `*Error: ${error instanceof Error ? error.message : 'Unknown error'}*`;
   }
 }
 
