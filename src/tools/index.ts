@@ -34,19 +34,27 @@ export {
   draftEmailTool
 } from './email-tools';
 
+export {
+  webSearch,
+  webSearchFunction,
+  webSearchFunctions
+} from './web-search-tools';
+
 // Collect all function definitions for OpenAI
 import { supplierFunctions } from './supplier-tools';
 import { contactFunctions } from './contact-tools';
 import { interactionFunctions } from './interaction-tools';
 import { noteFunctions } from './note-tools';
 import { draftEmailTool } from './email-tools';
+import { webSearchFunction } from './web-search-tools';
 
 export const allFunctions = [
   ...supplierFunctions,
   ...contactFunctions,
   ...interactionFunctions,
   ...noteFunctions,
-  draftEmailTool
+  draftEmailTool,
+  webSearchFunction
 ];
 
 // Tool function mapping for execution
@@ -119,6 +127,12 @@ export const toolFunctions = {
   draft_email: async (args: any) => {
     const { draftEmail } = await import('./email-tools');
     return draftEmail(args);
+  },
+  
+  // Web search tools
+  web_search: async (args: any) => {
+    const { webSearch } = await import('./web-search-tools');
+    return webSearch(args);
   }
 };
 
